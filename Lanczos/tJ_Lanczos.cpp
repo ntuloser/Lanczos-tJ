@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include"config.h"
 #include <vector>
+//#include <omp.h>
 
 using namespace std;
 
@@ -18,14 +19,14 @@ const double t=1.;
 const double J=2.;//0.33;
 const int num_e=SIZE*SIZE-DELTA;
 
-const int Variational_steps=50;
+const int Variational_steps=1;
 const double del_t = 0.015;//0.03
 const double differStep=0.008; //little larger then the variation of energy per site.
 
 
 ////Variational parameter////
-double D=1.23848;//0.0200;        // the first  parameter
-double Mu=-0.348159;//0.520803;     // the second parameter
+double D=0.880081;//0.0200;        // the first  parameter
+double Mu=-1.2273;//0.520803;     // the second parameter
 double g=1;             // the third  parameter
 /////////////////////////////
 std::vector<double> Energy_log;
@@ -148,43 +149,48 @@ int main(){
 	//we set(update) a_ij in each iteration of the variation for-loop.
 
     
-	config alpha(SIZE,DELTA);
-	//Construct a intermidiate config called beta !!
-	config beta(SIZE,DELTA);
-	//alpha.copy_config_to( &beta );
-	config gamma(SIZE,DELTA);
+	config config_level1(SIZE,DELTA);
+	//Construct a intermidiate config called config_level2 !!
+	config config_level2(SIZE,DELTA);
+	//config_level1.copy_config_to( &config_level2 );
+	config config_level3(SIZE,DELTA);
+    config config_level4(SIZE,DELTA);
 	//...
-
-	double ** slater_a;
-	slater_a = new double*[num_e/2];
+    //config config_level[3]={config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA)};
+    //config config1[4];
+    
+	double ** slater_1;
+	slater_1 = new double*[num_e/2];
 	for (int k=0; k<num_e/2; k++) {
-		slater_a[k] =new double[num_e/2];
+		slater_1[k] =new double[num_e/2];
+	}
+	double ** slater_2;
+	slater_2 = new double*[num_e/2];
+	for (int k=0; k<num_e/2; k++) {
+		slater_2[k] =new double[num_e/2];
+	}
+	double ** slater_3;
+	slater_3 = new double*[num_e/2];
+	for (int k=0; k<num_e/2; k++) {
+		slater_3[k] =new double[num_e/2];
+	}
+    double ** slater_4;
+    slater_4 = new double*[num_e/2];
+    for (int k=0; k<num_e/2; k++) {
+        slater_4[k] =new double[num_e/2];
+    }
+
+
+	double ** inv_slater_1;
+	inv_slater_1 = new double*[num_e/2];
+	for (int k=0; k<num_e/2; k++) {
+		inv_slater_1[k] =new double[num_e/2];
 	}
 
-	double ** slater_b;
-	slater_b = new double*[num_e/2];
+	double ** inv_slater_2;
+	inv_slater_2 = new double*[num_e/2];
 	for (int k=0; k<num_e/2; k++) {
-		slater_b[k] =new double[num_e/2];
-	}
-
-
-	double ** slater_g;
-	slater_g = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		slater_g[k] =new double[num_e/2];
-	}
-
-
-	double ** inv_slater_a;
-	inv_slater_a = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		inv_slater_a[k] =new double[num_e/2];
-	}
-
-	double ** inv_slater_b;
-	inv_slater_b = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		inv_slater_b[k] =new double[num_e/2];
+		inv_slater_2[k] =new double[num_e/2];
 	}
 
 
@@ -220,40 +226,40 @@ int main(){
         }
 
         
-		double  tot_E2      =0;
+		double  tot_E_sqr      =0;
 		double  tot_doub2   =0;
 
 		/////////////////////////////////
 		//**the monte carlo procedure**//
 		/////////////////////////////////
         
-        alpha.rand_init_no_d();
-        alpha.printconfig();
+        config_level1.rand_init_no_d();
+        config_level1.printconfig();
         
 		int sample=50000;
 		int interval=10;
-		int warmup=30000;
+		int warmup=3000;
 		//		int takeInv=500;
 		int totsteps=sample*interval+warmup;
 
 		for (int steps=0;steps<=totsteps;steps++){
 
 			//Random
-			//Generating a new config from alpha !
+			//Generating a new config from config_level1 !
 			//
 			int flipped=0;
 			int idx =   rand()%(SIZE*SIZE);     //choose electron
 			int move =  rand()%4;
 			int overbound=0;
 
-			 alpha.swap(&beta, int(idx/SIZE),idx%SIZE, move,&flipped,&overbound);
-            //int tJ = alpha.swap(&beta, x,y,move,&flipped,&overbound);
+            config_level1.swap(&config_level2, int(idx/SIZE),idx%SIZE, move,&flipped,&overbound);
+            //int tJ = config_level1.swap(&config_level2, x,y,move,&flipped,&overbound);
 
 			/*
-			   cout<<"\n alpha:\n";
-			   alpha.printconfig();
-			   cout<<"beta:\n";
-			   beta.printconfig();
+			   cout<<"\n config_level1:\n";
+			   config_level1.printconfig();
+			   cout<<"config_level2:\n";
+			   config_level2.printconfig();
 			   cout<<"\n edited:"<<flipped<<"\n";
 			 */
 
@@ -270,18 +276,18 @@ int main(){
 				p=(rand()+1)/(double)(RAND_MAX);
 			}
 
-			alpha.set_slater(a_ij,slater_a);
-			beta.set_slater(a_ij,slater_b);
+			config_level1.set_slater(a_ij,slater_1);
+			config_level2.set_slater(a_ij,slater_2);
 
 			if (flipped==1) {
-				//cout<<"prob:"<<pow(determinant(slater_b,num_e/2)/determinant(slater_a,num_e/2),2)<<"\n";
-				int num_d_a = alpha.num_doublon();
-				int num_d_b = beta.num_doublon();
+				//cout<<"prob:"<<pow(determinant(slater_2,num_e/2)/determinant(slater_1,num_e/2),2)<<"\n";
+				int num_d_a = config_level1.num_doublon();
+				int num_d_b = config_level2.num_doublon();
 
-				if (p<pow(determinant(slater_b)/determinant(slater_a),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater_a))<0.00001){
+				if (p<pow(determinant(slater_2)/determinant(slater_1),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater_1))<0.00001){
 
 					//updated config.
-					beta.copy_config_to( &alpha );
+					config_level2.copy_config_to( &config_level1 );
 					tot_accept+=1;
 				}
 			}
@@ -296,27 +302,27 @@ int main(){
 
 			if (steps%interval==0 && steps>warmup){
 
-				alpha.set_slater(a_ij,slater_a);
-				//if (std::abs(determinant(slater_a))<0.000001)   cout<<"small_deter!!!\n";
-				//createInverse(slater_a,inv_slater_a,num_e/2);
+				config_level1.set_slater(a_ij,slater_1);
+				//if (std::abs(determinant(slater_1))<0.000001)   cout<<"small_deter!!!\n";
+				//createInverse(slater_1,inv_slater_1,num_e/2);
                 
 				/////optimization//
-				double  deter_origin = determinant(slater_a);
+				double  deter_origin = determinant(slater_1)*config_level1.SX;
                 
 				D+=differStep;
 				update_aij(a_ij,kk);
-				alpha.set_slater(a_ij,slater_a);
-				double  deter_D     =   determinant(slater_a);
+				config_level1.set_slater(a_ij,slater_1);
+				double  deter_D     =   determinant(slater_1)*config_level1.SX;
                 
 				D-=differStep;
 				Mu+=differStep;
 				update_aij(a_ij,kk);
-				alpha.set_slater(a_ij,slater_a);
-				double  deter_Mu    =   determinant(slater_a);
+				config_level1.set_slater(a_ij,slater_1);
+				double  deter_Mu    =   determinant(slater_1)*config_level1.SX;
                 
 				Mu-=differStep;
 				update_aij(a_ij,kk);
-				alpha.set_slater(a_ij,slater_a);
+				config_level1.set_slater(a_ij,slater_1);
                 
 				double  deriv_D     =   (deter_D-deter_origin)/(differStep*deter_origin);
 				double  deriv_Mu    =   (deter_Mu-deter_origin)/(differStep*deter_origin);
@@ -334,6 +340,14 @@ int main(){
                 //////////////////
 				//    t-J       //
                 //////////////////
+                
+                //  config_level1, config_level2, a_ij, slater_2,deter_origin,
+                //  tot_E_sqr, tot_E, tot_O_DtimesE, tot_O_MutimesE
+                //  deriv_D, deriv_Mu
+
+                //  flipped, overbound
+                
+                
                 double temp_EperSample=0;
 
 				for (int x=0; x<SIZE; x++) {
@@ -341,97 +355,88 @@ int main(){
 						for (int move=0; move<3; move++) {
                             if (move==1)    continue;
                             //cout<<"move:"<<move<<"x:"<<x<<"y:"<<y<<endl;
-                            
 
-							double E_term[4]={0,0,0,0};
+							double E_term[3]={0,0,0};
 							double ratio=0;
 							double Ek_square=0;
                             flipped=0;
                             overbound=0 ;
 
-
-							//int site_idx=(x*SIZE+y);
-
-							int tJ = alpha.swap(&beta, x,y,move,&flipped,&overbound);
+							int tJ = config_level1.swap(&config_level2, x,y,move,&flipped,&overbound);
 							
-                            if (flipped==1) {
-								beta.set_slater(a_ij,slater_b);
+                            
 
+                            if (flipped==1) {
+								config_level2.set_slater(a_ij,slater_2);
+                                
 								//for (int i=0; i<num_e/2; i++) {
-								//	ratio += slater_b[idx_1][i]*inv_slater_a[i][idx_1];
+								//	ratio += slater_2[idx_1][i]*inv_slater_1[i][idx_1];
 								//}
 
-								if (not overbound) {
-									//Ek=-t*ratio *pow(g,num_d_b-num_d_a);
-                                    if (tJ==1) {
-                                        E_term[0]  =  -t*determinant(slater_b)/deter_origin;
+                                //Ek=-t*ratio *pow(g,num_d_b-num_d_a);
+                                if (tJ==1) {// ele -- empty
+                                    if (not overbound) {
+                                        
+                                        E_term[0]  =  -t*determinant(slater_2)/deter_origin*config_level2.SX;
+                                        {
+                                            //GOGO level2
+                                        }
+                                        //function --> H_square
                                     }
-                                    else if(tJ==2){
-                                        E_term[1]  = -J/2*determinant(slater_b)/deter_origin;// exchange
-                                        E_term[2]  = (-J/4*1);  // contribution from the S1Z S2Z term
-                                        E_term[3]  = (-J/4*1);  // contribution from the n_up*n_down term
-                                    }
-                                    else cout<<"GG\n";
+                                    else{//overbound
+                                        E_term[0]  =  t*determinant(slater_2)/deter_origin*config_level2.SX;
 
+                                    }
+                                }
+                                else if(tJ==2){// eleup -- eledown
+                                    E_term[1]  = +J/2*determinant(slater_2)/deter_origin*config_level2.SX;// exchange
+                                    {
+                                        //GOGO level2
+                                    }
+                                    E_term[2]  = (-J/4*2);  // contribution from the S1Z S2Z term
+                                    // contribution from the n_up*n_down term
+                                    {
+                                        //config_level1.copy_config_to(config_level2);
+                                        //GOGO level2
+                                    }
+                                    //function --> H_square
+                                    
+                                }
+                                else cout<<"GG\n";
 
 									//Ek_square=-t  ;
-								}
-								else{
-									//Ek=t*ratio *pow(g,num_d_b-num_d_a);
-                                    if (tJ==1) {
-                                        E_term[0] =  t*determinant(slater_b)/deter_origin ;
-                                    }
-                                    else if(tJ==2){
-                                        E_term[1] =  -J/2*determinant(slater_b)/deter_origin ;// exchange
-                                        E_term[2] =  (-J/4*1);// contri from the S1Z S2Z term
-                                        E_term[3] =  (-J/4*1);  // contribution from the n_up*n_down term
-
-                                    }
-                                    else cout<<"GG\n";
-
-									//Ek_square=t  ;
-								}
-
 							}//end if flipped==1
 							else{//if flipped==0
                                 if (tJ==0) {
-                                    ;
+                                    ;   //emtpy -- empty
                                 }
                                 else if(tJ==3){
-                                    ;
+                                    ;   //ele -- ele
                                 }
                                 
 								//E=0;
 							}
 
 
-							//tot_Esquare +=  Ek*U*beta.num_doublon(); //contri ~ -6
-							//tot_Esquare +=  U*alpha.num_doublon()*Ek; //contri ~ -6.2
+							//tot_Esquare +=  Ek*U*config_level2.num_doublon(); //contri ~ -6
+							//tot_Esquare +=  U*config_level1.num_doublon()*Ek; //contri ~ -6.2
 
-                            for (int i=0; i<4; i++) {
+                            for (int i=0; i<3; i++) {
                                 tot_E       +=  E_term[i];
                                 tot_O_DtimesE += E_term[i]*deriv_D;
                                 tot_O_MutimesE += E_term[i]*deriv_Mu;
                                 //tot_O_gtimesE += E*deriv_g;
                             }
                             
-                            for (int i=0; i<4; i++) {
+                            for (int i=0; i<3; i++) {
                                 temp_EperSample       +=  E_term[i];
                             }
-                            
-                            
 						}// endfor move
-
-						//tot_Esquare += pow(U*alpha.num_doublon(),2);//contribution ~ 1
-
-
 					}//endfor y
-
-
-
 				}//endfor x
-                tot_E2 += pow(temp_EperSample,2);
-
+                
+                
+                tot_E_sqr += pow(temp_EperSample,2);
 			}
 
 
@@ -449,7 +454,7 @@ int main(){
         Mu_log.push_back(Mu);
 		double num_doub = double(tot_doub)/double(sample);
 
-        double err_E=std::pow( double((tot_E2/sample-pow(avg_E,2))/sample) , 0.5)/pow(double(SIZE),2);
+        double err_E=std::pow( double((tot_E_sqr/sample-pow(avg_E,2))/sample) , 0.5)/pow(double(SIZE),2);
 		double err_doub=pow( (tot_doub2/sample-pow(num_doub,2))/sample,0.5)/pow(double(SIZE),2);
 
 
@@ -503,16 +508,16 @@ int main(){
         ////////////////////////////////////
         // The Steepest Decend(SD) method //
         ////////////////////////////////////
-		D   -= del_t*grad_D*5;
-		Mu  -= del_t*grad_Mu*5;
+		//D   -= del_t*grad_D*5;
+		//Mu  -= del_t*grad_Mu*5;
 		//g   -= del_t*grad_g;
         
         ////////////////////////////////////
         // Th SR method                 //
         /////////////////////////////////////
 
-        //D   -= del_t*dD0;
-        //Mu  -= del_t*dD1;
+        D   -= del_t*dD0;
+        Mu  -= del_t*dD1;
         //g   -= del_t*grad_g;
         
         
@@ -521,11 +526,13 @@ int main(){
 
 
 	}//end of variational loop;
-
+    
+    
+    
+    // Output the log //
     cout<<"log:"<<endl;
     for (int i=0; i<Energy_log.size(); i++) {
         cout<<"E: "<<Energy_log[i]<<",D: "<<D_log[i]<<",Mu: "<<Mu_log[i]<<endl;
-        
     }
 
 	return 0;

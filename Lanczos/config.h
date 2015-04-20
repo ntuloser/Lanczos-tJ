@@ -14,6 +14,7 @@ class config{
 private:
     
 public:
+    int SX;
     int Size;
     int Dope;
     int num_ele;
@@ -27,8 +28,11 @@ public:
     //function//
     ////////////
 public:
+    ////default_constructor
+    config();
     ////Constructor
     config(int s, int d ){
+        SX=1;
         Size=s;
         num_ele=s*s-d;
         
@@ -60,9 +64,6 @@ public:
     //  random  initial   ////
     //////////////////////////
     void rand_init(){
-        
-
-        
 		int count=0;
 		while (count < num_ele/2 ) // Filling the up spin part, total s*s/2-delta/2 electrons.
 		{
@@ -141,10 +142,8 @@ public:
 
     }
     
+    
     void rand_init_no_d(){
-        
-        
-        
 		int count=0;
 		while (count < num_ele/2 ) // Filling the up spin part, total s*s/2-delta/2 electrons.
 		{
@@ -442,6 +441,10 @@ public:
             tJ+=1;
         }
         
+        if (tJ==2) {
+            // in the case of superexchange
+            beta_ptr->SX *= (-1);
+        }
         (*f_ptr)=1;
         return tJ;
         
@@ -499,7 +502,7 @@ public:
         //beta_ptr->Size = this->Size;
         //beta_ptr->Dope = this->Dope;
         //beta_ptr->num_ele = this->num_ele;
-        
+        beta_ptr->SX = this->SX;
         for (int i=0; i<Size; i++) {
             for (int j=0; j<Size; j++) {
                 beta_ptr->squarelattice[i][j]->state = (this->squarelattice[i][j]->state);
