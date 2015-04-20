@@ -60,10 +60,8 @@ void update_aij(double ** a_ij, double kk[SIZE*SIZE][2]){
 			}
 			//Checked
 			//printf("a[%i][%i]=%f\n",i,j,a_ij[i][j]);
-
 		}
 	}
-
 }
 
 
@@ -112,6 +110,8 @@ double determinant(double** a)
 	return det*pow(-1.0,n);
 }
 
+void Traversal(int level, int bound, config* config_level, double ** a_ij, double *** slater,const double deter_origin,const double deriv_D, const double deriv_Mu, double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample);
+
 
 
 
@@ -149,49 +149,58 @@ int main(){
 	//we set(update) a_ij in each iteration of the variation for-loop.
 
     
-	config config_level1(SIZE,DELTA);
-	//Construct a intermidiate config called config_level2 !!
-	config config_level2(SIZE,DELTA);
-	//config_level1.copy_config_to( &config_level2 );
-	config config_level3(SIZE,DELTA);
-    config config_level4(SIZE,DELTA);
-	//...
-    //config config_level[3]={config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA)};
+	//config config_level[0](SIZE,DELTA);
+    /////////Construct a intermidiate config called config_level[1] !!
+	//config config_level[1](SIZE,DELTA);
+	/////////config_level[0].copy_config_to( &config_level[1] );
+	//config config_level[2](SIZE,DELTA);
+    //config config_level[3](SIZE,DELTA);
+    config config_level[4]={config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA)};
     //config config1[4];
     
-	double ** slater_1;
-	slater_1 = new double*[num_e/2];
+    int lvl=4;
+    double *** slater;
+    slater = new double**[lvl];
+    for (int i=0; i<lvl; i++) {
+        slater[i] = new double*[num_e/2];
+        for (int k=0; k<num_e/2; k++) {
+            slater[i][k] =new double[num_e/2];
+        }
+    }
+    /*
+	double ** slater[0];
+	slater[0] = new double*[num_e/2];
 	for (int k=0; k<num_e/2; k++) {
-		slater_1[k] =new double[num_e/2];
+		slater[0][k] =new double[num_e/2];
 	}
-	double ** slater_2;
-	slater_2 = new double*[num_e/2];
+	double ** slater[1];
+	slater[1] = new double*[num_e/2];
 	for (int k=0; k<num_e/2; k++) {
-		slater_2[k] =new double[num_e/2];
+		slater[1][k] =new double[num_e/2];
 	}
-	double ** slater_3;
-	slater_3 = new double*[num_e/2];
+	double ** slater[2];
+	slater[2] = new double*[num_e/2];
 	for (int k=0; k<num_e/2; k++) {
-		slater_3[k] =new double[num_e/2];
+		slater[2][k] =new double[num_e/2];
 	}
-    double ** slater_4;
-    slater_4 = new double*[num_e/2];
+    double ** slater[3];
+    slater[3] = new double*[num_e/2];
     for (int k=0; k<num_e/2; k++) {
-        slater_4[k] =new double[num_e/2];
+        slater[3][k] =new double[num_e/2];
     }
 
 
-	double ** inv_slater_1;
-	inv_slater_1 = new double*[num_e/2];
+	double ** inv_slater[0];
+	inv_slater[0] = new double*[num_e/2];
 	for (int k=0; k<num_e/2; k++) {
-		inv_slater_1[k] =new double[num_e/2];
+		inv_slater[0][k] =new double[num_e/2];
 	}
 
-	double ** inv_slater_2;
-	inv_slater_2 = new double*[num_e/2];
+	double ** inv_slater[1];
+	inv_slater[1] = new double*[num_e/2];
 	for (int k=0; k<num_e/2; k++) {
-		inv_slater_2[k] =new double[num_e/2];
-	}
+		inv_slater[1][k] =new double[num_e/2];
+	}*/
 
 
 
@@ -233,8 +242,8 @@ int main(){
 		//**the monte carlo procedure**//
 		/////////////////////////////////
         
-        config_level1.rand_init_no_d();
-        config_level1.printconfig();
+        config_level[0].rand_init_no_d();
+        config_level[0].printconfig();
         
 		int sample=50000;
 		int interval=10;
@@ -245,21 +254,21 @@ int main(){
 		for (int steps=0;steps<=totsteps;steps++){
 
 			//Random
-			//Generating a new config from config_level1 !
+			//Generating a new config from config_level[0] !
 			//
 			int flipped=0;
 			int idx =   rand()%(SIZE*SIZE);     //choose electron
 			int move =  rand()%4;
 			int overbound=0;
 
-            config_level1.swap(&config_level2, int(idx/SIZE),idx%SIZE, move,&flipped,&overbound);
-            //int tJ = config_level1.swap(&config_level2, x,y,move,&flipped,&overbound);
+            config_level[0].swap(&config_level[1], int(idx/SIZE),idx%SIZE, move,&flipped,&overbound);
+            //int tJ = config_level[0].swap(&config_level[1], x,y,move,&flipped,&overbound);
 
 			/*
-			   cout<<"\n config_level1:\n";
-			   config_level1.printconfig();
-			   cout<<"config_level2:\n";
-			   config_level2.printconfig();
+			   cout<<"\n config_level[0]:\n";
+			   config_level[0].printconfig();
+			   cout<<"config_level[1]:\n";
+			   config_level[1].printconfig();
 			   cout<<"\n edited:"<<flipped<<"\n";
 			 */
 
@@ -276,18 +285,18 @@ int main(){
 				p=(rand()+1)/(double)(RAND_MAX);
 			}
 
-			config_level1.set_slater(a_ij,slater_1);
-			config_level2.set_slater(a_ij,slater_2);
+			config_level[0].set_slater(a_ij,slater[0]);
+			config_level[1].set_slater(a_ij,slater[1]);
 
 			if (flipped==1) {
-				//cout<<"prob:"<<pow(determinant(slater_2,num_e/2)/determinant(slater_1,num_e/2),2)<<"\n";
-				int num_d_a = config_level1.num_doublon();
-				int num_d_b = config_level2.num_doublon();
+				//cout<<"prob:"<<pow(determinant(slater[1],num_e/2)/determinant(slater[0],num_e/2),2)<<"\n";
+				int num_d_a = config_level[0].num_doublon();
+				int num_d_b = config_level[1].num_doublon();
 
-				if (p<pow(determinant(slater_2)/determinant(slater_1),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater_1))<0.00001){
+				if (p<pow(determinant(slater[1])/determinant(slater[0]),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater[0]))<0.00001){
 
 					//updated config.
-					config_level2.copy_config_to( &config_level1 );
+					config_level[1].copy_config_to( &config_level[0] );
 					tot_accept+=1;
 				}
 			}
@@ -302,27 +311,27 @@ int main(){
 
 			if (steps%interval==0 && steps>warmup){
 
-				config_level1.set_slater(a_ij,slater_1);
-				//if (std::abs(determinant(slater_1))<0.000001)   cout<<"small_deter!!!\n";
-				//createInverse(slater_1,inv_slater_1,num_e/2);
+				config_level[0].set_slater(a_ij,slater[0]);
+				//if (std::abs(determinant(slater[0]))<0.000001)   cout<<"small_deter!!!\n";
+				//createInverse(slater[0],inv_slater[0],num_e/2);
                 
 				/////optimization//
-				double  deter_origin = determinant(slater_1)*config_level1.SX;
+				double  deter_origin = determinant(slater[0])*config_level[0].SX;
                 
 				D+=differStep;
 				update_aij(a_ij,kk);
-				config_level1.set_slater(a_ij,slater_1);
-				double  deter_D     =   determinant(slater_1)*config_level1.SX;
+				config_level[0].set_slater(a_ij,slater[0]);
+				double  deter_D     =   determinant(slater[0])*config_level[0].SX;
                 
 				D-=differStep;
 				Mu+=differStep;
 				update_aij(a_ij,kk);
-				config_level1.set_slater(a_ij,slater_1);
-				double  deter_Mu    =   determinant(slater_1)*config_level1.SX;
+				config_level[0].set_slater(a_ij,slater[0]);
+				double  deter_Mu    =   determinant(slater[0])*config_level[0].SX;
                 
 				Mu-=differStep;
 				update_aij(a_ij,kk);
-				config_level1.set_slater(a_ij,slater_1);
+				config_level[0].set_slater(a_ij,slater[0]);
                 
 				double  deriv_D     =   (deter_D-deter_origin)/(differStep*deter_origin);
 				double  deriv_Mu    =   (deter_Mu-deter_origin)/(differStep*deter_origin);
@@ -341,103 +350,17 @@ int main(){
 				//    t-J       //
                 //////////////////
                 
-                //  config_level1, config_level2, a_ij, slater_2,deter_origin,
+                //  config_level[0], config_level[1], a_ij, slater[1],deter_origin,
                 //  tot_E_sqr, tot_E, tot_O_DtimesE, tot_O_MutimesE
                 //  deriv_D, deriv_Mu
-
-                //  flipped, overbound
-                
-                
                 double temp_EperSample=0;
+                int N=1;
 
-				for (int x=0; x<SIZE; x++) {
-					for (int y=0; y<SIZE; y++) {
-						for (int move=0; move<3; move++) {
-                            if (move==1)    continue;
-                            //cout<<"move:"<<move<<"x:"<<x<<"y:"<<y<<endl;
-
-							double E_term[3]={0,0,0};
-							double ratio=0;
-							double Ek_square=0;
-                            flipped=0;
-                            overbound=0 ;
-
-							int tJ = config_level1.swap(&config_level2, x,y,move,&flipped,&overbound);
-							
-                            
-
-                            if (flipped==1) {
-								config_level2.set_slater(a_ij,slater_2);
-                                
-								//for (int i=0; i<num_e/2; i++) {
-								//	ratio += slater_2[idx_1][i]*inv_slater_1[i][idx_1];
-								//}
-
-                                //Ek=-t*ratio *pow(g,num_d_b-num_d_a);
-                                if (tJ==1) {// ele -- empty
-                                    if (not overbound) {
-                                        
-                                        E_term[0]  =  -t*determinant(slater_2)/deter_origin*config_level2.SX;
-                                        {
-                                            //GOGO level2
-                                        }
-                                        //function --> H_square
-                                    }
-                                    else{//overbound
-                                        E_term[0]  =  t*determinant(slater_2)/deter_origin*config_level2.SX;
-
-                                    }
-                                }
-                                else if(tJ==2){// eleup -- eledown
-                                    E_term[1]  = +J/2*determinant(slater_2)/deter_origin*config_level2.SX;// exchange
-                                    {
-                                        //GOGO level2
-                                    }
-                                    E_term[2]  = (-J/4*2);  // contribution from the S1Z S2Z term
-                                    // contribution from the n_up*n_down term
-                                    {
-                                        //config_level1.copy_config_to(config_level2);
-                                        //GOGO level2
-                                    }
-                                    //function --> H_square
-                                    
-                                }
-                                else cout<<"GG\n";
-
-									//Ek_square=-t  ;
-							}//end if flipped==1
-							else{//if flipped==0
-                                if (tJ==0) {
-                                    ;   //emtpy -- empty
-                                }
-                                else if(tJ==3){
-                                    ;   //ele -- ele
-                                }
-                                
-								//E=0;
-							}
-
-
-							//tot_Esquare +=  Ek*U*config_level2.num_doublon(); //contri ~ -6
-							//tot_Esquare +=  U*config_level1.num_doublon()*Ek; //contri ~ -6.2
-
-                            for (int i=0; i<3; i++) {
-                                tot_E       +=  E_term[i];
-                                tot_O_DtimesE += E_term[i]*deriv_D;
-                                tot_O_MutimesE += E_term[i]*deriv_Mu;
-                                //tot_O_gtimesE += E*deriv_g;
-                            }
-                            
-                            for (int i=0; i<3; i++) {
-                                temp_EperSample       +=  E_term[i];
-                            }
-						}// endfor move
-					}//endfor y
-				}//endfor x
-                
+                Traversal(0,1, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, &tot_E, &tot_O_DtimesE, &tot_O_MutimesE, &temp_EperSample);
                 
                 tot_E_sqr += pow(temp_EperSample,2);
-			}
+                
+			}//End of Sampling.
 
 
 		}//end of monte carlo loop;
@@ -519,10 +442,6 @@ int main(){
         D   -= del_t*dD0;
         Mu  -= del_t*dD1;
         //g   -= del_t*grad_g;
-        
-        
-        
-
 
 
 	}//end of variational loop;
@@ -537,5 +456,105 @@ int main(){
 
 	return 0;
 }
-//term 1 ~ -0.7, term2 ~ 0.15, term3 ~ -0.35 , total ~-0.9
+
+
+
+
+void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, double *** slater, const double deter_origin, const double deriv_D, const double deriv_Mu,double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample){
+    
+    if (lvl_now==bound) {
+        return;
+    }
+    
+    for (int x=0; x<SIZE; x++) {
+        for (int y=0; y<SIZE; y++) {
+            for (int move=0; move<3; move++) {
+                if (move==1)    continue;
+                //cout<<"move:"<<move<<"x:"<<x<<"y:"<<y<<endl;
+                
+                double E_term[3]={0,0,0};
+                double ratio=0;
+                double Ek_square=0;
+                int flipped=0;
+                int overbound=0 ;
+                
+                int tJ = config_level[lvl_now].swap(&config_level[lvl_now+1], x,y,move,&flipped,&overbound);
+                
+                if (flipped==1) {
+                    config_level[lvl_now+1].set_slater(a_ij,slater[1]);
+                    
+                    //for (int i=0; i<num_e/2; i++) {
+                    //	ratio += slater[1][idx_1][i]*inv_slater[0][i][idx_1];
+                    //}
+                    
+                    //Ek=-t*ratio *pow(g,num_d_b-num_d_a);
+                    if (tJ==1) {// ele -- empty
+                        if (not overbound) {
+                            
+                            E_term[0]  =  -t*determinant(slater[1])/deter_origin*config_level[lvl_now+1].SX;
+                            {
+                                //Traversal.
+                                Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample);
+
+                            }
+                            //function --> H_square
+                        }
+                        else{//overbound
+                            E_term[0]  =  t*determinant(slater[1])/deter_origin*config_level[lvl_now+1].SX;
+                            
+                        }
+                    }
+                    else if(tJ==2){// eleup -- eledown
+                        E_term[1]  = +J/2*determinant(slater[1])/deter_origin*config_level[lvl_now+1].SX;
+                        {
+                            //Traversal.
+                        }
+                        E_term[2]  = (-J/4*2);  // contribution from the S1Z S2Z term
+                        // contribution from the n_up*n_down term
+                        {
+                            config_level[lvl_now].copy_config_to(&config_level[lvl_now+1]);
+                            //Traversal.
+                        }
+                        //function --> H_square
+                        
+                    }
+                    else cout<<"GG\n";
+                    
+                    //Ek_square=-t  ;
+                }//end if flipped==1
+                else{//if flipped==0
+                    if (tJ==0) {
+                        ;   //emtpy -- empty
+                    }
+                    else if(tJ==3){
+                        ;   //ele -- ele
+                    }
+                    
+                    //E=0;
+                }
+                
+                
+                
+                if (lvl_now==0) {
+                    
+                    for (int i=0; i<3; i++) {
+                        (*ptr_tot_E)       +=  E_term[i];
+                        (*ptr_tot_O_DtimesE) += E_term[i]*deriv_D;
+                        (*ptr_tot_O_MutimesE) += E_term[i]*deriv_Mu;
+                        //tot_O_gtimesE += E*deriv_g;
+                    }
+                    
+                    for (int i=0; i<3; i++) {
+                        (*ptr_temp_EperSample)       +=  E_term[i];
+                    }
+
+                }
+            }// endfor move
+        }//endfor y
+    }//endfor x
+}
+
+
+//  better data structure --> memory cost rather than speed cost
+//  parallel computing in openMP
 
