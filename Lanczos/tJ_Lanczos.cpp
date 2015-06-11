@@ -6,6 +6,8 @@
 #include"config.h"
 #include <vector>
 //#include <omp.h>
+#include <mpi.h>
+
 
 using namespace std;
 
@@ -110,102 +112,42 @@ double determinant(double** a)
 	return det*pow(-1.0,n);
 }
 
-void Traversal(int level, int bound, config* config_level, double ** a_ij, double *** slater,const double deter_origin,const double deriv_D, const double deriv_Mu, double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample);
+void Traversal(int level, int bound, config* config_level, double ** a_ij, double *** slater,const double deter_origin,const double deriv_D, const double deriv_Mu, double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample,double *Energy_level, double * tot_E_power);
 
 
 
 
 int main(){
 	srand((unsigned)time(0));
-    
-	double E_tmp[4];
-
-
-
-
-	// The Brillouin Zone with periodic in x, antiperiodic in y
-	double kk[SIZE*SIZE][2];    // 1-dim vector representation of kx,ky
-	for (int idx =0; idx<SIZE*SIZE; idx++) {
-		int i=      idx % SIZE;
-		int j=      idx / SIZE;
-		kk[idx][0]= PI*( 1.-2.0*i/SIZE);
-		kk[idx][1]= PI*( (SIZE-1.0)/SIZE-2.0*j/SIZE);
-		//Checked
-		//printf("%f, %f\n",kk[idx][0],kk[idx][1]);
-	}
-
-
-
-
-	//// all possible a_ij
-	//// consider all possible r_i - r_j
-	//// This generate a 2S-1 X 2S-1 matrix
-	//// We shall call the matrix by giving the displacement vector
-
-	double ** a_ij = new double*[2*SIZE-1];
-	for (int k=0; k < (2*SIZE-1); k++) {
-		a_ij[k] =new double[2*SIZE-1];
-	}
-	//we set(update) a_ij in each iteration of the variation for-loop.
 
     
-	//config config_level[0](SIZE,DELTA);
-    /////////Construct a intermidiate config called config_level[1] !!
-	//config config_level[1](SIZE,DELTA);
-	/////////config_level[0].copy_config_to( &config_level[1] );
-	//config config_level[2](SIZE,DELTA);
-    //config config_level[3](SIZE,DELTA);
-    config config_level[4]={config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA)};
-    //config config1[4];
     
-    int lvl=4;
-    double *** slater;
-    slater = new double**[lvl];
-    for (int i=0; i<lvl; i++) {
-        slater[i] = new double*[num_e/2];
-        for (int k=0; k<num_e/2; k++) {
-            slater[i][k] =new double[num_e/2];
-        }
+    
+    // The Brillouin Zone with periodic in x, antiperiodic in y
+    double kk[SIZE*SIZE][2];    // 1-dim vector representation of kx,ky
+    for (int idx =0; idx<SIZE*SIZE; idx++) {
+        int i=      idx % SIZE;
+        int j=      idx / SIZE;
+        kk[idx][0]= PI*( 1.-2.0*i/SIZE);
+        kk[idx][1]= PI*( (SIZE-1.0)/SIZE-2.0*j/SIZE);
+        //Checked
+        //printf("%f, %f\n",kk[idx][0],kk[idx][1]);
     }
     /*
-	double ** slater[0];
-	slater[0] = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		slater[0][k] =new double[num_e/2];
-	}
-	double ** slater[1];
-	slater[1] = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		slater[1][k] =new double[num_e/2];
-	}
-	double ** slater[2];
-	slater[2] = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		slater[2][k] =new double[num_e/2];
-	}
-    double ** slater[3];
-    slater[3] = new double*[num_e/2];
-    for (int k=0; k<num_e/2; k++) {
-        slater[3][k] =new double[num_e/2];
-    }
+    
+     double ** inv_slater[0];
+     inv_slater[0] = new double*[num_e/2];
+     for (int k=0; k<num_e/2; k++) {
+     inv_slater[0][k] =new double[num_e/2];
+     }
+     
+     double ** inv_slater[1];
+     inv_slater[1] = new double*[num_e/2];
+     for (int k=0; k<num_e/2; k++) {
+     inv_slater[1][k] =new double[num_e/2];
+     }*/
 
-
-	double ** inv_slater[0];
-	inv_slater[0] = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		inv_slater[0][k] =new double[num_e/2];
-	}
-
-	double ** inv_slater[1];
-	inv_slater[1] = new double*[num_e/2];
-	for (int k=0; k<num_e/2; k++) {
-		inv_slater[1][k] =new double[num_e/2];
-	}*/
-
-
-
-
-
+    
 
 
 	/////////////////////////////
@@ -214,13 +156,11 @@ int main(){
 
 	for (int stp=0;stp<Variational_steps ; stp++) {
 
-		// SET a_ij matrix
-        update_aij(a_ij,kk);
 
 		///Reset all variable///
 		int     tot_doub    =0;
 		double  tot_E       =0;
-		double  tot_Esquare =0;
+        double  tot_E_power[4]={0,0,0,0};
 		double  tot_accept  =0;
 
         double  tot_O[3]={0,0,0};
@@ -241,135 +181,188 @@ int main(){
 		/////////////////////////////////
 		//**the monte carlo procedure**//
 		/////////////////////////////////
+        int sample=5000;
+        int interval=30;
+        int warmup=3000;
+        int totsteps=sample*interval+warmup;
         
-        config_level[0].rand_init_no_d();
-        config_level[0].printconfig();
+        ///////////  Using OpenMP ////////
+        //int num_threads=omp_get_max_threads() ;
+        //////////////////////////////////
         
-		int sample=50000;
-		int interval=10;
-		int warmup=3000;
-		//		int takeInv=500;
-		int totsteps=sample*interval+warmup;
-
-		for (int steps=0;steps<=totsteps;steps++){
-
-			//Random
-			//Generating a new config from config_level[0] !
-			//
-			int flipped=0;
-			int idx =   rand()%(SIZE*SIZE);     //choose electron
-			int move =  rand()%4;
-			int overbound=0;
-
-            config_level[0].swap(&config_level[1], int(idx/SIZE),idx%SIZE, move,&flipped,&overbound);
-            //int tJ = config_level[0].swap(&config_level[1], x,y,move,&flipped,&overbound);
-
-			/*
-			   cout<<"\n config_level[0]:\n";
-			   config_level[0].printconfig();
-			   cout<<"config_level[1]:\n";
-			   config_level[1].printconfig();
-			   cout<<"\n edited:"<<flipped<<"\n";
-			 */
-
-
-
-			///////////////////////////////////////
-			///   Metropolis algorithm      ///////
-			///////////////////////////////////////
-
-			/// Given the random probability 0<p<1 ///
-
-			double p=0;
-			while (p==0){
-				p=(rand()+1)/(double)(RAND_MAX);
-			}
-
-			config_level[0].set_slater(a_ij,slater[0]);
-			config_level[1].set_slater(a_ij,slater[1]);
-
-			if (flipped==1) {
-				//cout<<"prob:"<<pow(determinant(slater[1],num_e/2)/determinant(slater[0],num_e/2),2)<<"\n";
-				int num_d_a = config_level[0].num_doublon();
-				int num_d_b = config_level[1].num_doublon();
-
-				if (p<pow(determinant(slater[1])/determinant(slater[0]),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater[0]))<0.00001){
-
-					//updated config.
-					config_level[1].copy_config_to( &config_level[0] );
-					tot_accept+=1;
-				}
-			}
-
-
-
-
-
-			////////////////////////////////////////////////////////////////
-			///////////  guys, Time to Sampling  ~~  /////////////
-			//////////////////////////////////////////
-
-			if (steps%interval==0 && steps>warmup){
-
-				config_level[0].set_slater(a_ij,slater[0]);
-				//if (std::abs(determinant(slater[0]))<0.000001)   cout<<"small_deter!!!\n";
-				//createInverse(slater[0],inv_slater[0],num_e/2);
-                
-				/////optimization//
-				double  deter_origin = determinant(slater[0])*config_level[0].SX;
-                
-				D+=differStep;
-				update_aij(a_ij,kk);
-				config_level[0].set_slater(a_ij,slater[0]);
-				double  deter_D     =   determinant(slater[0])*config_level[0].SX;
-                
-				D-=differStep;
-				Mu+=differStep;
-				update_aij(a_ij,kk);
-				config_level[0].set_slater(a_ij,slater[0]);
-				double  deter_Mu    =   determinant(slater[0])*config_level[0].SX;
-                
-				Mu-=differStep;
-				update_aij(a_ij,kk);
-				config_level[0].set_slater(a_ij,slater[0]);
-                
-				double  deriv_D     =   (deter_D-deter_origin)/(differStep*deter_origin);
-				double  deriv_Mu    =   (deter_Mu-deter_origin)/(differStep*deter_origin);
-				//double  deriv_g     =   ( pow(g,num_d_a) - pow((g+0.001),num_d_a) )/0.001;
-				tot_O[0] +=  deriv_D;
-				tot_O[1] +=  deriv_Mu;
-                tot_OtimesO[0][1]   += (deriv_D*deriv_Mu);
-                tot_OtimesO[1][0]   += (deriv_D*deriv_Mu);
-                tot_OtimesO[0][0]   += (deriv_D*deriv_D);
-                tot_OtimesO[1][1]   += (deriv_Mu*deriv_Mu);
-				//tot_O_g +=  deriv_g;
-				//////////
-
-
-                //////////////////
-				//    t-J       //
-                //////////////////
-                
-                //  config_level[0], config_level[1], a_ij, slater[1],deter_origin,
-                //  tot_E_sqr, tot_E, tot_O_DtimesE, tot_O_MutimesE
-                //  deriv_D, deriv_Mu
-                double temp_EperSample=0;
-                int N=1;
-
-                Traversal(0,1, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, &tot_E, &tot_O_DtimesE, &tot_O_MutimesE, &temp_EperSample);
-                
-                tot_E_sqr += pow(temp_EperSample,2);
-                
-			}//End of Sampling.
-
-
-		}//end of monte carlo loop;
-
+        ///////////  Using MPI ////////
+        MPI::Status status;
+        MPI::Init();
+        int numnodes = MPI::COMM_WORLD.Get_size();
+        int mynode = MPI::COMM_WORLD.Get_rank();
+        std::cout << "Process " << mynode<< " of " << numnodes << std::endl;
+        MPI::Finalize();
         
+        #pragma omp parallel for
+        for (int prl_seed=0; prl_seed<12; prl_seed++) {
+            
+            //// all possible a_ij
+            //// consider all possible r_i - r_j
+            //// This generate a 2S-1 X 2S-1 matrix
+            //// We shall call the matrix by giving the displacement vector
+            
+            double ** a_ij = new double*[2*SIZE-1];
+            for (int k=0; k < (2*SIZE-1); k++) {
+                a_ij[k] =new double[2*SIZE-1];
+            }
+            //we set(update) a_ij in each iteration of the variation for-loop.
+            
+            config config_level[4]={config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA),config(SIZE,DELTA)};
+            
+            int lvl=4;
+            double *** slater;
+            slater = new double**[lvl];
+            for (int i=0; i<lvl; i++) {
+                slater[i] = new double*[num_e/2];
+                for (int k=0; k<num_e/2; k++) {
+                    slater[i][k] =new double[num_e/2];
+                }
+            }
+            
+            // SET a_ij matrix
+            update_aij(a_ij,kk);
+
+            
+            
+            
+            
+
+            
+            config_level[0].rand_init_no_d();
+            config_level[0].printconfig();
+            
+            //		int takeInv=500;
+            
+            // #pragma omp single
+            
+            for (int steps=0;steps<=totsteps;steps++){
+                
+                //Random
+                //Generating a new config from config_level[0] !
+                //
+                int flipped=0;
+                int idx =   rand()%(SIZE*SIZE);     //choose electron
+                int move =  rand()%4;
+                int overbound=0;
+                
+                config_level[0].swap(&config_level[1], int(idx/SIZE),idx%SIZE, move,&flipped,&overbound);
+                //int tJ = config_level[0].swap(&config_level[1], x,y,move,&flipped,&overbound);
+                
+                /*
+                 cout<<"\n config_level[0]:\n";
+                 config_level[0].printconfig();
+                 cout<<"config_level[1]:\n";
+                 config_level[1].printconfig();
+                 cout<<"\n edited:"<<flipped<<"\n";
+                 */
+                
+                
+                
+                ///////////////////////////////////////
+                ///   Metropolis algorithm      ///////
+                ///////////////////////////////////////
+                
+                /// Given the random probability 0<p<1 ///
+                
+                double p=0;
+                while (p==0){
+                    p=(rand()+1)/(double)(RAND_MAX);
+                }
+                
+                config_level[0].set_slater(a_ij,slater[0]);
+                config_level[1].set_slater(a_ij,slater[1]);
+                
+                if (flipped==1) {
+                    //cout<<"prob:"<<pow(determinant(slater[1],num_e/2)/determinant(slater[0],num_e/2),2)<<"\n";
+                    int num_d_a = config_level[0].num_doublon();
+                    int num_d_b = config_level[1].num_doublon();
+                    
+                    if (p<pow(determinant(slater[1])/determinant(slater[0]),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater[0]))<0.00001){
+                        
+                        //updated config.
+                        config_level[1].copy_config_to( &config_level[0] );
+                        tot_accept+=1;
+                    }
+                }
+                
+                
+                
+                
+                
+                ////////////////////////////////////////////////////////////////
+                ///////////  guys, Time to Sampling  ~~  /////////////
+                //////////////////////////////////////////
+                
+                if (steps%interval==0 && steps>warmup){
+                    
+                    config_level[0].set_slater(a_ij,slater[0]);
+                    //if (std::abs(determinant(slater[0]))<0.000001)   cout<<"small_deter!!!\n";
+                    //createInverse(slater[0],inv_slater[0],num_e/2);
+                    
+                    /////optimization//
+                    double  deter_origin = determinant(slater[0])*config_level[0].Sign;
+                    
+                    D+=differStep;
+                    update_aij(a_ij,kk);
+                    config_level[0].set_slater(a_ij,slater[0]);
+                    double  deter_D     =   determinant(slater[0])*config_level[0].Sign;
+                    
+                    D-=differStep;
+                    Mu+=differStep;
+                    update_aij(a_ij,kk);
+                    config_level[0].set_slater(a_ij,slater[0]);
+                    double  deter_Mu    =   determinant(slater[0])*config_level[0].Sign;
+                    
+                    Mu-=differStep;
+                    update_aij(a_ij,kk);
+                    config_level[0].set_slater(a_ij,slater[0]);
+                    
+                    double  deriv_D     =   (deter_D-deter_origin)/(differStep*deter_origin);
+                    double  deriv_Mu    =   (deter_Mu-deter_origin)/(differStep*deter_origin);
+                    //double  deriv_g     =   ( pow(g,num_d_a) - pow((g+0.001),num_d_a) )/0.001;
+                    tot_O[0] +=  deriv_D;
+                    tot_O[1] +=  deriv_Mu;
+                    tot_OtimesO[0][1]   += (deriv_D*deriv_Mu);
+                    tot_OtimesO[1][0]   += (deriv_D*deriv_Mu);
+                    tot_OtimesO[0][0]   += (deriv_D*deriv_D);
+                    tot_OtimesO[1][1]   += (deriv_Mu*deriv_Mu);
+                    //tot_O_g +=  deriv_g;
+                    //////////
+                    
+                    
+                    //////////////////
+                    //    t-J       //
+                    //////////////////
+                    
+                    //  config_level[0], config_level[1], a_ij, slater[1],deter_origin,
+                    //  tot_E_sqr, tot_E, tot_O_DtimesE, tot_O_MutimesE
+                    //  deriv_D, deriv_Mu
+                    double temp_EperSample=0;
+                    int N=1;
+                    double Energy_level[4]={0,0,0,0};
+                    
+                    Traversal(0,2, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, &tot_E, &tot_O_DtimesE, &tot_O_MutimesE, &temp_EperSample,Energy_level,tot_E_power);
+                    
+                    tot_E_sqr += pow(temp_EperSample,2);
+                    
+                }//End of Sampling.
+                
+            }
+            
+        }//end of monte carlo loop;
+        //end of parallel
+        
+    
         ///////////////////////////////////////
         /// Optimization is hard T______T  ////
         ///////////////////////////////////////
 
+        sample = sample*12;
 		cout<<" D = "<<D<<" Mu = "<<Mu<<" g = "<<g<<"\n";
 		double avg_E= tot_E/sample;
         Energy_log.push_back(avg_E);
@@ -384,7 +377,7 @@ int main(){
 		//cout<<"tot_E = "<<tot_E<<", tot_doub = "<<tot_doub<<endl;
 		cout<<"sample = "<<sample<<"\n";
 		cout<<"avg_E = "<<avg_E /SIZE/SIZE<<" err: "<<err_E<<endl;
-		//cout<<"Esquare ="<<tot_Esquare /pow(SIZE,4)/sample<<endl;
+		cout<<"Esquare ="<<tot_E_power[1] /pow(SIZE,4)/sample<<endl;
 		//cout<<"E_variance = "<<pow((std::abs(pow(avg_E,2)-tot_Esquare/sample))/sample,0.5)/pow(SIZE,2)<<endl;
 		cout<<"doublon number="<<num_doub/SIZE/SIZE<<" err: "<<err_doub<<endl;
 		cout<<"acceptance ratio:" <<tot_accept/totsteps<<endl;
@@ -460,28 +453,27 @@ int main(){
 
 
 
-void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, double *** slater, const double deter_origin, const double deriv_D, const double deriv_Mu,double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample){
+void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, double *** slater, const double deter_origin, const double deriv_D, const double deriv_Mu,double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample, double *Energy_level, double * tot_E_power){
     
     if (lvl_now==bound) {
         return;
     }
-    
+
     for (int x=0; x<SIZE; x++) {
         for (int y=0; y<SIZE; y++) {
             for (int move=0; move<3; move++) {
                 if (move==1)    continue;
                 //cout<<"move:"<<move<<"x:"<<x<<"y:"<<y<<endl;
                 
-                double E_term[3]={0,0,0};
+                
                 double ratio=0;
-                double Ek_square=0;
                 int flipped=0;
                 int overbound=0 ;
                 
                 int tJ = config_level[lvl_now].swap(&config_level[lvl_now+1], x,y,move,&flipped,&overbound);
                 
                 if (flipped==1) {
-                    config_level[lvl_now+1].set_slater(a_ij,slater[1]);
+                    config_level[lvl_now+1].set_slater(a_ij,slater[lvl_now+1]);
                     
                     //for (int i=0; i<num_e/2; i++) {
                     //	ratio += slater[1][idx_1][i]*inv_slater[0][i][idx_1];
@@ -490,37 +482,119 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                     //Ek=-t*ratio *pow(g,num_d_b-num_d_a);
                     if (tJ==1) {// ele -- empty
                         if (not overbound) {
+                            //Traversal.
+                            //New config generate
+                            //Energy get.
+                            Energy_level[lvl_now]  =  -t*determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign;
                             
-                            E_term[0]  =  -t*determinant(slater[1])/deter_origin*config_level[lvl_now+1].SX;
-                            {
-                                //Traversal.
-                                Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample);
-
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
+                            
+                            if (lvl_now==0) {
+                                (*ptr_tot_E)       +=  Energy_level[0];
+                                (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
+                                (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
+                                //tot_O_gtimesE += E*deriv_g;
+                                (*ptr_temp_EperSample)       +=  Energy_level[0];
                             }
-                            //function --> H_square
+                            else{
+                                double temp=1.0;
+                                for (int i=0; i<=lvl_now; i++) {
+                                    temp*=Energy_level[i];
+                                }
+                                
+                                tot_E_power[lvl_now] += temp;
+                            }
+                            
                         }
-                        else{//overbound
-                            E_term[0]  =  t*determinant(slater[1])/deter_origin*config_level[lvl_now+1].SX;
+                        else{
+                            //In the case of overbound
+                            Energy_level[lvl_now]  =  t*determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign;
+                            
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
+
+                            if (lvl_now==0) {
+                                (*ptr_tot_E)       +=  Energy_level[0];
+                                (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
+                                (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
+                                //tot_O_gtimesE += E*deriv_g;
+                                (*ptr_temp_EperSample)       +=  Energy_level[0];
+                            }
+                            else{
+                                double temp=1.0;
+                                for (int i=0; i<=lvl_now; i++) {
+                                    temp*=Energy_level[i];
+                                }
+                                
+                                tot_E_power[lvl_now] += temp;
+                            }
+
+                            
                             
                         }
                     }
+                    
+                    
+                    
                     else if(tJ==2){// eleup -- eledown
-                        E_term[1]  = +J/2*determinant(slater[1])/deter_origin*config_level[lvl_now+1].SX;
-                        {
-                            //Traversal.
+                        {// contri from the superexchange.
+                            Energy_level[lvl_now]  = +J/2*determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign;
+
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
+                            
+                            
+                            if (lvl_now==0) {
+                                (*ptr_tot_E)       +=  Energy_level[0];
+                                (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
+                                (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
+                                //tot_O_gtimesE += E*deriv_g;
+                                (*ptr_temp_EperSample)       +=  Energy_level[0];
+                            }
+                            else{
+                                double temp=1.0;
+                                for (int i=0; i<=lvl_now; i++) {
+                                    temp*=Energy_level[i];
+                                }
+                                
+                                tot_E_power[lvl_now] += temp;
+                            }
+
+                            
                         }
-                        E_term[2]  = (-J/4*2);  // contribution from the S1Z S2Z term
+                        
                         // contribution from the n_up*n_down term
                         {
+                            Energy_level[lvl_now]  = (-J/4*2);  // contribution from the S1Z S2Z term
+                            
                             config_level[lvl_now].copy_config_to(&config_level[lvl_now+1]);
-                            //Traversal.
+                            
+                            
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
+
+                            if (lvl_now==0) {
+                                (*ptr_tot_E)       +=  Energy_level[0];
+                                (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
+                                (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
+                                //tot_O_gtimesE += E*deriv_g;
+                                (*ptr_temp_EperSample)       +=  Energy_level[0];
+                            }
+                            
+                            else{
+                                double temp=1.0;
+                                for (int i=0; i<=lvl_now; i++) {
+                                    temp*=Energy_level[i];
+                                }
+                                
+                                tot_E_power[lvl_now] += temp;
+                            }
+
+                            
+                            
+                            
                         }
-                        //function --> H_square
                         
                     }
                     else cout<<"GG\n";
                     
-                    //Ek_square=-t  ;
                 }//end if flipped==1
                 else{//if flipped==0
                     if (tJ==0) {
@@ -534,21 +608,6 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                 }
                 
                 
-                
-                if (lvl_now==0) {
-                    
-                    for (int i=0; i<3; i++) {
-                        (*ptr_tot_E)       +=  E_term[i];
-                        (*ptr_tot_O_DtimesE) += E_term[i]*deriv_D;
-                        (*ptr_tot_O_MutimesE) += E_term[i]*deriv_Mu;
-                        //tot_O_gtimesE += E*deriv_g;
-                    }
-                    
-                    for (int i=0; i<3; i++) {
-                        (*ptr_temp_EperSample)       +=  E_term[i];
-                    }
-
-                }
             }// endfor move
         }//endfor y
     }//endfor x

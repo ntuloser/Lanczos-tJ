@@ -1,7 +1,7 @@
 import pylab
 
 Energy=[]
-f=open('log_opt_by_Fi','rw')
+f=open('log2','rw')
 for line in f:
     line=line[:-1]
     Lst=line.split(',')
