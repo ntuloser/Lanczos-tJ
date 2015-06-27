@@ -1,4 +1,5 @@
-
+//extern int sss;
+//extern int ddd;
 
 class site {
 	private:
@@ -29,31 +30,18 @@ public:
     ////////////
 public:
     ////default_constructor
-    config();
+    //config();
+    
     ////Constructor
-    config(int s, int d ){
-        Sign=1;
-        Size=s;
-        num_ele=s*s-d;
-        
-        squarelattice = new site**[Size];
-		for (int i=0; i<Size; i++) {
-			squarelattice[i]= new site*[Size];
-			for (int j=0; j<Size; j++) {
-				squarelattice[i][j]=new site;
-			}
-		}
-        
-        electronsup = new int*[num_ele/2];
-        for (int i=0; i<num_ele/2; i++) {
-            electronsup[i] = new int[2];
-        }
-        electronsdown = new int*[num_ele/2];
-        for (int i=0; i<num_ele/2; i++) {
-            electronsdown[i] = new int[2];
-        }
-    }
+    config(int s=SIZE, int d=DELTA );
+    ////Destructor
+    ~config();
+    config(const config& a);
     /////////////////
+    ////Operator
+    config& operator=(const config& a);
+    
+
     
 
     
@@ -550,5 +538,157 @@ public:
 
 
 
+
+
+config::config(int s, int d ){
+    Sign=1;
+    Size=s;
+    num_ele=s*s-d;
+    
+    squarelattice = new site**[Size];
+    for (int i=0; i<Size; i++) {
+        squarelattice[i]= new site*[Size];
+        for (int j=0; j<Size; j++) {
+            squarelattice[i][j]=new site;
+        }
+    }
+    
+    electronsup = new int*[num_ele/2];
+    for (int i=0; i<num_ele/2; i++) {
+        electronsup[i] = new int[2];
+    }
+    electronsdown = new int*[num_ele/2];
+    for (int i=0; i<num_ele/2; i++) {
+        electronsdown[i] = new int[2];
+    }
+}
+
+
+//copy constructor
+config::config(const config& a){
+    
+    Sign = a.Sign;
+    Size = a.Size;
+    Dope = a.Dope;
+    num_ele = a.num_ele;
+    
+    squarelattice = new site**[Size];
+    for (int i=0; i<Size; i++) {
+        squarelattice[i]= new site*[Size];
+        for (int j=0; j<Size; j++) {
+            squarelattice[i][j]=new site;
+        }
+    }
+    
+    electronsup = new int*[num_ele/2];
+    for (int i=0; i<num_ele/2; i++) {
+        electronsup[i] = new int[2];
+    }
+    electronsdown = new int*[num_ele/2];
+    for (int i=0; i<num_ele/2; i++) {
+        electronsdown[i] = new int[2];
+    }
+
+    
+    for (int i=0; i<Size; i++) {
+        for (int j=0; j<Size; j++) {
+            squarelattice[i][j]->state = (a.squarelattice[i][j]->state);
+            squarelattice[i][j]->idx_up = (a.squarelattice[i][j]->idx_up);
+            squarelattice[i][j]->idx_down = (a.squarelattice[i][j]->idx_down);
+        }
+    }
+    for (int i=0; i<num_ele/2; i++) {
+        for (int j=0; j<2; j++) {
+            electronsup[i][j] = a.electronsup[i][j];
+            electronsdown[i][j] = a.electronsdown[i][j];
+        }
+    }
+
+}
+
+//destructor
+config::~config(){
+    for (int i=0; i<Size; i++) {
+        for (int j=0; j<Size; j++) {
+            delete squarelattice[i][j];
+        }
+        delete [] squarelattice[i];
+    }
+    delete [] squarelattice;
+    
+    for (int i=0; i<num_ele/2; i++) {
+        delete [] electronsup[i];
+    }
+    delete [] electronsup;
+
+    for (int i=0; i<num_ele/2; i++) {
+        delete [] electronsdown[i];
+    }
+    delete [] electronsdown;
+    
+}
+
+config& config::operator=(const config& a){
+    if (this != &a) {//avoid self assignment
+        //destruct the original data
+        for (int i=0; i<Size; i++) {
+            for (int j=0; j<Size; j++) {
+                delete squarelattice[i][j];
+            }
+            delete [] squarelattice[i];
+        }
+        delete [] squarelattice;
+        
+        for (int i=0; i<num_ele/2; i++) {
+            delete [] electronsup[i];
+        }
+        delete [] electronsup;
+        
+        for (int i=0; i<num_ele/2; i++) {
+            delete [] electronsdown[i];
+        }
+        delete [] electronsdown;
+        // set new data from a
+        
+        Sign = a.Sign;
+        Size = a.Size;
+        Dope = a.Dope;
+        num_ele = a.num_ele;
+        
+        squarelattice = new site**[Size];
+        for (int i=0; i<Size; i++) {
+            squarelattice[i]= new site*[Size];
+            for (int j=0; j<Size; j++) {
+                squarelattice[i][j]=new site;
+            }
+        }
+        
+        electronsup = new int*[num_ele/2];
+        for (int i=0; i<num_ele/2; i++) {
+            electronsup[i] = new int[2];
+        }
+        electronsdown = new int*[num_ele/2];
+        for (int i=0; i<num_ele/2; i++) {
+            electronsdown[i] = new int[2];
+        }
+        
+        
+        for (int i=0; i<Size; i++) {
+            for (int j=0; j<Size; j++) {
+                squarelattice[i][j]->state = (a.squarelattice[i][j]->state);
+                squarelattice[i][j]->idx_up = (a.squarelattice[i][j]->idx_up);
+                squarelattice[i][j]->idx_down = (a.squarelattice[i][j]->idx_down);
+            }
+        }
+        for (int i=0; i<num_ele/2; i++) {
+            for (int j=0; j<2; j++) {
+                electronsup[i][j] = a.electronsup[i][j];
+                electronsdown[i][j] = a.electronsdown[i][j];
+            }
+        }
+
+    }
+    return *this;
+}
 
 

@@ -11,9 +11,7 @@
 #define SIZE 4
 #define DELTA 6//6
 #define LEV 1// calculation given to H^lev
-
 #include"config.h"
-
 
 using namespace std;
 
@@ -212,7 +210,7 @@ int main(int argc, char** argv){
     //srand(  pow((unsigned)time(0),(mynode+1))  );
     srand((mynode+1)*(unsigned)time(0));
 
-    
+
     // The Brillouin Zone with periodic in x, antiperiodic in y
     double kk[SIZE*SIZE][2];    // 1-dim vector representation of kx,ky
     for (int idx =0; idx<SIZE*SIZE; idx++) {
@@ -222,8 +220,9 @@ int main(int argc, char** argv){
         kk[idx][1]= PI*( (SIZE-1.0)/SIZE-2.0*j/SIZE);
         //Checked
         //printf("%f, %f\n",kk[idx][0],kk[idx][1]);
-    }    
+    }
 
+    unordered_map<long long,double> dMap;
 
 	/////////////////////////////
 	////Variational Procedure////
@@ -326,7 +325,6 @@ int main(int argc, char** argv){
         config_level[0].rand_init_no_d();
         config_level[0].printconfig();
         
-        tonumber(config_level[0]);
         
         //		int takeInv=500;
         
@@ -372,8 +370,25 @@ int main(int argc, char** argv){
                 int num_d_a = config_level[0].num_doublon();
                 int num_d_b = config_level[1].num_doublon();
                 
-                if (p<pow(determinant(slater[1])/determinant(slater[0]),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater[0]))<0.00001){
-                    
+                unordered_map<long long,double>::const_iterator got0 = dMap.find (tonumber(config_level[0]));
+                if ( got0 == dMap.end() ){
+                    double deter_0 = determinant(slater[0]);
+                    dMap.emplace (tonumber(config_level[0]), deter_0);
+                }
+                else{
+                    double deter_0 = got0->second;
+                }
+                
+                unordered_map<long long,double>::const_iterator got1 = dMap.find (tonumber(config_level[1]));
+                if ( got1 == dMap.end() ){
+                    double deter_1 = determinant(slater[1]);
+                    dMap.emplace (tonumber(config_level[1]), deter_1);
+                }
+                else{
+                    double deter_1 = got1->second;
+                }
+                
+                if (p<pow(deter_1/deter_0,2) *pow(g,2*(num_d_b-num_d_a))|| abs(deter_0)<0.00001){
                     //updated config.
                     config_level[1].copy_config_to( &config_level[0] );
                     tot_accept+=1;
