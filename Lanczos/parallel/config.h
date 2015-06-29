@@ -335,7 +335,7 @@ public:
     
     
     
-    int swap(config* beta_ptr, const int x,const int y, int move,int* f_ptr, int* o_ptr){
+    int swap(config* beta_ptr, const int& x,const int& y, const int& move,int* f_ptr, int* o_ptr){
         
         int tJ=0;
         this->copy_config_to(beta_ptr);
@@ -490,12 +490,24 @@ public:
         //beta_ptr->Size = this->Size;
         //beta_ptr->Dope = this->Dope;
         //beta_ptr->num_ele = this->num_ele;
+        
+        
         beta_ptr->Sign = this->Sign;
         for (int i=0; i<Size; i++) {
             for (int j=0; j<Size; j++) {
+                
+                site* b_site=beta_ptr->squarelattice[i][j];
+                site* this_site=this->squarelattice[i][j];
+                
+                b_site->state = this_site->state;
+                b_site->idx_up = this_site->idx_up;
+                b_site->idx_down = this_site->idx_down;
+                
+                /*
                 beta_ptr->squarelattice[i][j]->state = (this->squarelattice[i][j]->state);
                 beta_ptr->squarelattice[i][j]->idx_up = (this->squarelattice[i][j]->idx_up);
                 beta_ptr->squarelattice[i][j]->idx_down = (this->squarelattice[i][j]->idx_down);
+                */
             }
         }
         for (int i=0; i<num_ele/2; i++) {
@@ -544,6 +556,7 @@ config::config(int s, int d ){
     Sign=1;
     Size=s;
     num_ele=s*s-d;
+    
     
     squarelattice = new site**[Size];
     for (int i=0; i<Size; i++) {

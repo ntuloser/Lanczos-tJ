@@ -6,14 +6,13 @@
 #include <vector>
 //#include <omp.h>
 #include <mpi.h>
+#include <functional>
 #include <unordered_map>
 
 #define SIZE 4
 #define DELTA 6//6
-#define LEV 1// calculation given to H^lev
-
+#// calculation given to H^lev
 #include"config.h"
-
 
 using namespace std;
 
@@ -40,6 +39,8 @@ std::vector<double> Energy_log;
 std::vector<double> D_log;
 std::vector<double> Mu_log;
 
+int countaccept=0;
+int counttotal=0;
 
 
 void createInverse(double c[SIZE*SIZE/2][SIZE*SIZE/2],double b[SIZE*SIZE/2][SIZE*SIZE/2],int n){
@@ -101,87 +102,87 @@ void createInverse(double c[SIZE*SIZE/2][SIZE*SIZE/2],double b[SIZE*SIZE/2][SIZE
     for (int i=0;i<n;i=i+1)
         for (int j=0;j<n;j=j+1)
             b[i][j]=Inv[i][j];
-
+    
 }
 
 void update_aij(double ** a_ij, double kk[SIZE*SIZE][2]){
-	for (int i=0; i< (SIZE*2-1); i++) {
-		for (int j=0; j <(SIZE*2 -1 ); j++) {
-
-			a_ij[i][j]=0;
-
-			for (int m=0; m<SIZE*SIZE; m++) {
-				double ek,Dk;
-				ek = (-2.)*t*(cos(kk[m][0])+cos(kk[m][1])) - Mu;
-				Dk = D*(cos(kk[m][0])-cos(kk[m][1])) ;
-
-				if (D>0.0001) {
-					//If D is not vanishing
-					//sine term is cancel when summing over the BZ zone.
-					a_ij[i][j] += Dk/(ek+pow(pow(ek,2)+pow(Dk,2),0.5) )*cos(kk[m][0]*(i-(SIZE-1))+kk[m][1]*(j-(SIZE-1)) )  / (SIZE*SIZE);
-				}
-				else{
-					//cout<<"error in vanishing D"<<endl;
-
-					a_ij[i][j]+=0.5*(1-std::abs(ek)/ek)*cos(kk[m][0]*(i-(SIZE-1))+kk[m][1]*(j-(SIZE-1)) )/(SIZE*SIZE);}
-
-			}
-			//Checked
-			//printf("a[%i][%i]=%f\n",i,j,a_ij[i][j]);
-		}
-	}
+    for (int i=0; i< (SIZE*2-1); i++) {
+        for (int j=0; j <(SIZE*2 -1 ); j++) {
+            
+            a_ij[i][j]=0;
+            
+            for (int m=0; m<SIZE*SIZE; m++) {
+                double ek,Dk;
+                ek = (-2.)*t*(cos(kk[m][0])+cos(kk[m][1])) - Mu;
+                Dk = D*(cos(kk[m][0])-cos(kk[m][1])) ;
+                
+                if (D>0.0001) {
+                    //If D is not vanishing
+                    //sine term is cancel when summing over the BZ zone.
+                    a_ij[i][j] += Dk/(ek+pow(pow(ek,2)+pow(Dk,2),0.5) )*cos(kk[m][0]*(i-(SIZE-1))+kk[m][1]*(j-(SIZE-1)) )  / (SIZE*SIZE);
+                }
+                else{
+                    //cout<<"error in vanishing D"<<endl;
+                    
+                    a_ij[i][j]+=0.5*(1-std::abs(ek)/ek)*cos(kk[m][0]*(i-(SIZE-1))+kk[m][1]*(j-(SIZE-1)) )/(SIZE*SIZE);}
+                
+            }
+            //Checked
+            //printf("a[%i][%i]=%f\n",i,j,a_ij[i][j]);
+        }
+    }
 }
 
 
 double determinant(double** a)
 {
-	double x[num_e/2][num_e/2];
-	for (int i=0;i< num_e/2;i=i+1)
-		for (int j=0;j< num_e/2;j=j+1)
-			x[i][j]=a[i][j];
-	int k=0,n=0;
-	while (k< num_e/2)
-	{
-		int l=k;
-		while (std::abs(x[l][k])<0.00001)
-		{
-			l=l+1;
-			if (l== num_e/2)
-				return 0;
-		}
-		if (l!=k)
-		{
-			n=n+1;
-			for (int i=0;i< num_e/2;i=i+1)
-			{
-				double b;
-				b=x[k][i];
-				x[k][i]=x[l][i];
-				x[l][i]=b;
-			}
-		}
-
-		for (int i=k+1;i< num_e/2;i=i+1)
-		{
-			double r=x[i][k]/x[k][k];
-			for (int j=k;j< num_e/2;j=j+1)
-			{
-				x[i][j]=x[i][j]-r*x[k][j];
-			}
-		}
-		k=k+1;
-	}
-	double det=1;
-	for (int i=0;i< num_e/2;i=i+1)
-	{det=det*x[i][i];
-	}
-	return det*pow(-1.0,n);
+    double x[num_e/2][num_e/2];
+    for (int i=0;i< num_e/2;i=i+1)
+        for (int j=0;j< num_e/2;j=j+1)
+            x[i][j]=a[i][j];
+    int k=0,n=0;
+    while (k< num_e/2)
+    {
+        int l=k;
+        while (std::abs(x[l][k])<0.00001)
+        {
+            l=l+1;
+            if (l== num_e/2)
+                return 0;
+        }
+        if (l!=k)
+        {
+            n=n+1;
+            for (int i=0;i< num_e/2;i=i+1)
+            {
+                double b;
+                b=x[k][i];
+                x[k][i]=x[l][i];
+                x[l][i]=b;
+            }
+        }
+        
+        for (int i=k+1;i< num_e/2;i=i+1)
+        {
+            double r=x[i][k]/x[k][k];
+            for (int j=k;j< num_e/2;j=j+1)
+            {
+                x[i][j]=x[i][j]-r*x[k][j];
+            }
+        }
+        k=k+1;
+    }
+    double det=1;
+    for (int i=0;i< num_e/2;i=i+1)
+    {det=det*x[i][i];
+    }
+    return det*pow(-1.0,n);
 }
 
-void Traversal(int level, int bound, config* config_level, double ** a_ij, double *** slater,const double deter_origin,const double deriv_D, const double deriv_Mu, double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample,double *Energy_level, double * tot_E_power);
+void Traversal(int level, int bound, config* config_level, double ** a_ij, double *** slater,const double& deter_origin,const double& deriv_D, const double& deriv_Mu, double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample,double *Energy_level, double * tot_E_power,  unordered_map<long long,double>* dMapPtr);
 
 
-long long tonumber(config alpha){
+long long tonumber(const config& alpha){
     long long number=0;
     for (int idx=0; idx<alpha.num_ele/2 ; idx++) {
         double tmp = 4.0*idx;
@@ -189,7 +190,7 @@ long long tonumber(config alpha){
         number += alpha.electronsup[idx][1] * pow(4,(tmp+1.));
         number += alpha.electronsdown[idx][0]*pow(4,(tmp+2.));
         number += alpha.electronsdown[idx][1]*pow(4,(tmp+3.));
-    
+        
     }
     //cout<<" The number transform from the config :"<<number<<endl;
     return number;
@@ -198,7 +199,7 @@ long long tonumber(config alpha){
 
 
 int main(int argc, char** argv){
-
+    
     double buffer[3]={D,Mu,0};//D,Mu,g
     double ksum, Nsum;
     ///////////  Using MPI ////////
@@ -211,7 +212,7 @@ int main(int argc, char** argv){
     
     //srand(  pow((unsigned)time(0),(mynode+1))  );
     srand((mynode+1)*(unsigned)time(0));
-
+    
     
     // The Brillouin Zone with periodic in x, antiperiodic in y
     double kk[SIZE*SIZE][2];    // 1-dim vector representation of kx,ky
@@ -222,43 +223,44 @@ int main(int argc, char** argv){
         kk[idx][1]= PI*( (SIZE-1.0)/SIZE-2.0*j/SIZE);
         //Checked
         //printf("%f, %f\n",kk[idx][0],kk[idx][1]);
-    }    
-
-
-	/////////////////////////////
-	////Variational Procedure////
-	/////////////////////////////
-
-	for (int stp=0;stp<Variational_steps ; stp++) {
-
-
-		///Reset all variable///
-		int     tot_doub    =0;
-		double  tot_E       =0;
+    }
+    
+    unordered_map<long long,double,hash<long long> > dMap;
+    
+    /////////////////////////////
+    ////Variational Procedure////
+    /////////////////////////////
+    
+    for (int stp=0;stp<Variational_steps ; stp++) {
+        
+        
+        ///Reset all variable///
+        int     tot_doub    =0;
+        double  tot_E       =0;
         double  tot_E_power[LEV];
         for (int i=0; i<LEV; i++) {
             tot_E_power[i]=0;
         }
-		double  tot_accept  =0;
-
+        double  tot_accept  =0;
+        
         double  tot_O[3]={0,0,0};
-		double  tot_O_DtimesE =0;
-		double  tot_O_MutimesE =0;
-		double  tot_O_gtimesE =0;
+        double  tot_O_DtimesE =0;
+        double  tot_O_MutimesE =0;
+        double  tot_O_gtimesE =0;
         double  tot_OtimesO[3][3];
         for (int i=0; i<3; i++) {
             for (int j=0; j<3; j++) {
                 tot_OtimesO[i][j]=0;
             }
         }
-
         
-		double  tot_E_sqr      =0;
-		double  tot_doub2   =0;
-
-		/////////////////////////////////
-		//**the monte carlo procedure**//
-		/////////////////////////////////
+        
+        double  tot_E_sqr      =0;
+        double  tot_doub2   =0;
+        
+        /////////////////////////////////
+        //**the monte carlo procedure**//
+        /////////////////////////////////
         int sample=20000/numnodes;
         int interval=30;
         int warmup=3000;
@@ -286,11 +288,11 @@ int main(int argc, char** argv){
         
         
         /*try {
-            config* config_level = new config[LEV];
-        }catch (bad_alloc xa) {
-                cout << "Allocation Failure\n";
-            return 1;
-        }*/
+         config* config_level = new config[LEV];
+         }catch (bad_alloc xa) {
+         cout << "Allocation Failure\n";
+         return 1;
+         }*/
         
         
         int lvl=LEV+1;
@@ -326,7 +328,6 @@ int main(int argc, char** argv){
         config_level[0].rand_init_no_d();
         config_level[0].printconfig();
         
-        tonumber(config_level[0]);
         
         //		int takeInv=500;
         
@@ -372,8 +373,37 @@ int main(int argc, char** argv){
                 int num_d_a = config_level[0].num_doublon();
                 int num_d_b = config_level[1].num_doublon();
                 
-                if (p<pow(determinant(slater[1])/determinant(slater[0]),2) *pow(g,2*(num_d_b-num_d_a))|| abs(determinant(slater[0]))<0.00001){
-                    
+                counttotal+=2;
+                
+                double deter_0;
+                long long number=tonumber(config_level[0]);
+                unordered_map<long long,double>::const_iterator got0 = dMap.find (number);
+                if ( got0 == dMap.end() ){
+                    deter_0 = determinant(slater[0]);
+                    pair<long long,double> tmp (number,deter_0);
+                    dMap.insert( tmp);
+                    //dMap.insert ( {tonumber(config_level[0]), deter_0} );
+                }
+                else{
+                    countaccept+=1;
+                    deter_0 = got0->second;
+                }
+                
+                double deter_1;
+                number =tonumber(config_level[1]);
+                unordered_map<long long,double>::const_iterator got1 = dMap.find (number);
+                if ( got1 == dMap.end() ){
+                    deter_1 = determinant(slater[1]);
+                    pair<long long,double> tmp (number,deter_1);
+                    dMap.insert( tmp);
+                    //dMap.emplace (tonumber(config_level[1]), deter_1);
+                }
+                else{
+                    countaccept+=1;
+                    deter_1 = got1->second;
+                }
+                
+                if (p<pow(deter_1/deter_0,2) *pow(g,2*(num_d_b-num_d_a))|| abs(deter_0)<0.00001){
                     //updated config.
                     config_level[1].copy_config_to( &config_level[0] );
                     tot_accept+=1;
@@ -439,7 +469,7 @@ int main(int argc, char** argv){
                     Energy_level[i]=0;
                 }
                 
-                Traversal(0,LEV, config_level, a_ij, slater, deter_origin, deriv_D, deriv_Mu, &tot_E, &tot_O_DtimesE, &tot_O_MutimesE, &temp_EperSample,Energy_level,tot_E_power);
+                Traversal(0,LEV, config_level, a_ij, slater, deter_origin, deriv_D, deriv_Mu, &tot_E, &tot_O_DtimesE, &tot_O_MutimesE, &temp_EperSample,Energy_level,tot_E_power, &dMap);
                 //get the value of tot_E, tot_O_DtimesE, tot_O_MutimesE, temp_EperSample, Energy_level, tot_E_power
                 
                 tot_E_sqr += pow(temp_EperSample,2);
@@ -453,7 +483,7 @@ int main(int argc, char** argv){
         
         //
         
-
+        
         
         double SUM_tot_E=0;
         double SUM_tot_O_DtimesE, SUM_tot_O_MutimesE, SUM_tot_E_sqr;
@@ -471,7 +501,7 @@ int main(int argc, char** argv){
         MPI_Reduce(tot_E_power,SUM_tot_E_power,LEV,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
         MPI_Reduce(tot_O,SUM_tot_O,3,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
         MPI_Reduce(local_tot_OO,SUM_tot_OO,4,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-
+        
         
         
         if (mynode==0) {//This is the master branch
@@ -493,7 +523,7 @@ int main(int argc, char** argv){
             tot_OtimesO[0][1]=SUM_tot_OO[2];
             tot_OtimesO[1][1]=SUM_tot_OO[3];
             
-
+            
             
             
             cout<<" D = "<<D<<" Mu = "<<Mu<<" g = "<<g<<"\n";
@@ -558,7 +588,7 @@ int main(int argc, char** argv){
             ///////////////////////////////////////
             /// Optimization is hard T______T  ////
             ///////////////////////////////////////
-
+            
             
             //del_t define in the beginning
             ////////////////////////////////////
@@ -588,13 +618,13 @@ int main(int argc, char** argv){
         ////////////////
         MPI_Bcast(buffer,3,MPI_DOUBLE,0,MPI_COMM_WORLD);
         //int MPI_Bcast( void *buffer, int count, MPI_Datatype datatype, int root,  MPI_Comm comm )
-
-
+        
+        
         D  = buffer[0];
         Mu = buffer[1];
         
-
-	}//end of variational loop;
+        
+    }//end of variational loop;
     
     
     if (mynode==0) {
@@ -603,22 +633,28 @@ int main(int argc, char** argv){
         for (int i=0; i<Energy_log.size(); i++) {
             cout<<"E: "<<Energy_log[i]<<",D: "<<D_log[i]<<",Mu: "<<Mu_log[i]<<endl;
         }
+        cout<<"hash_map_efficiency:"<<endl;
+        cout<<"total = "<<counttotal<< "  accept = "<<countaccept<<"ratio"<<double(countaccept)/counttotal<<endl;
     }
     MPI::Finalize();
-
-	return 0;
+    
+    return 0;
 }
 
 
 
 
 
-void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, double *** slater, const double deter_origin, const double deriv_D, const double deriv_Mu,double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample, double *Energy_level, double * tot_E_power){
+void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, double *** slater, const double& deter_origin, const double& deriv_D, const double& deriv_Mu,double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample, double *Energy_level, double * tot_E_power, unordered_map<long long,double>* dMapPtr){
+    
+    
+    double deter[ (bound+1) ];
+    
     
     if (lvl_now==bound) {
         return;
     }
-
+    
     for (int x=0; x<SIZE; x++) {
         for (int y=0; y<SIZE; y++) {
             for (int move=0; move<3; move++) {
@@ -633,7 +669,23 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                 int tJ = config_level[lvl_now].swap(&config_level[lvl_now+1], x,y,move,&flipped,&overbound);
                 
                 if (flipped==1) {
-                    config_level[lvl_now+1].set_slater(a_ij,slater[lvl_now+1]);
+                    counttotal+=1;
+                    
+                    long long number =tonumber(config_level[lvl_now+1]);
+                    unordered_map<long long,double>::const_iterator got = dMapPtr->find (number);
+                    if ( got == dMapPtr->end() ){
+                        config_level[lvl_now+1].set_slater(a_ij,slater[lvl_now+1]);
+                        deter[lvl_now+1] = determinant(slater[lvl_now+1]);
+                        
+                        pair<long long,double> tmp (number,deter[lvl_now+1]);
+                        dMapPtr->insert( tmp);
+                        //dMapPtr->insert ( {tonumber(config_level[0]), deter_0} );
+                    }
+                    else{
+                        countaccept+=1;
+                        deter[lvl_now+1] = got->second;
+                    }
+                    
                     
                     //for (int i=0; i<num_e/2; i++) {
                     //	ratio += slater[1][idx_1][i]*inv_slater[0][i][idx_1];
@@ -648,10 +700,12 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                             Energy_level[lvl_now]  =  -t;
                             
                             
-                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
                             
                             if (lvl_now==0) {
-                                Energy_level[lvl_now]*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
+
+                                Energy_level[lvl_now]*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
+                                //Energy_level[lvl_now]*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
                                 (*ptr_tot_E)       +=  Energy_level[0];
                                 (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
                                 (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
@@ -663,7 +717,8 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                                 for (int i=0; i<=lvl_now; i++) {
                                     temp*=Energy_level[i];
                                 }
-                                temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
+                                temp*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
+                                //temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
                                 tot_E_power[lvl_now] += temp;
                             }
                             
@@ -674,11 +729,12 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                             Energy_level[lvl_now]  =  t;
                             
                             
-                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
-
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
+                            
                             if (lvl_now==0) {
-                                Energy_level[lvl_now]*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
-
+                                Energy_level[lvl_now]*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
+                                //Energy_level[lvl_now]*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
+                                
                                 (*ptr_tot_E)       +=  Energy_level[0];
                                 (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
                                 (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
@@ -690,11 +746,12 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                                 for (int i=0; i<=lvl_now; i++) {
                                     temp*=Energy_level[i];
                                 }
-                                temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
-
+                                temp*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
+                                //temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
+                                
                                 tot_E_power[lvl_now] += temp;
                             }
-
+                            
                             
                             
                         }
@@ -704,68 +761,90 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                     
                     else if(tJ==2){// eleup -- eledown
                         
-                            {// contri from the superexchange.
-                                //Energy_level[lvl_now]  = +J/2*determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign;
-                                Energy_level[lvl_now]  = +J/2;
+                        {// contri from the superexchange.
+                            //Energy_level[lvl_now]  = +J/2*determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign;
+                            Energy_level[lvl_now]  = +J/2;
+                            
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
+                            
+                            
+                            if (lvl_now==0) {
+                                Energy_level[lvl_now]*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
+                                //Energy_level[lvl_now]*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
                                 
-                                Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
-                                
-                                
-                                if (lvl_now==0) {
-                                    Energy_level[lvl_now]*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
-                                    
-                                    (*ptr_tot_E)       +=  Energy_level[0];
-                                    (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
-                                    (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
-                                    //tot_O_gtimesE += E*deriv_g;
-                                    (*ptr_temp_EperSample)       +=  Energy_level[0];
+                                (*ptr_tot_E)       +=  Energy_level[0];
+                                (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
+                                (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
+                                //tot_O_gtimesE += E*deriv_g;
+                                (*ptr_temp_EperSample)       +=  Energy_level[0];
+                            }
+                            else{
+                                double temp=1.0;
+                                for (int i=0; i<=lvl_now; i++) {
+                                    temp*=Energy_level[i];
                                 }
-                                else{
-                                    double temp=1.0;
-                                    for (int i=0; i<=lvl_now; i++) {
-                                        temp*=Energy_level[i];
-                                    }
-                                    temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
-                                    
-                                    tot_E_power[lvl_now] += temp;
-                                }
+                                temp*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
+                                //temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
                                 
-                                
+                                tot_E_power[lvl_now] += temp;
                             }
                             
-                            // contribution from the n_up*n_down term
-                            {// giving the identical configuration in the next level.
-                                Energy_level[lvl_now]  = (-J/4*2);  // contribution from the S1Z S2Z term
-                                
-                                config_level[lvl_now].copy_config_to(&config_level[lvl_now+1]);
+                            
+                        }
+                        
+                        // contribution from the n_up*n_down term
+                        {// giving the identical configuration in the next level.
+                            Energy_level[lvl_now]  = (-J/4*2);  // contribution from the S1Z S2Z term
+                            
+                            config_level[lvl_now].copy_config_to(&config_level[lvl_now+1]);
+                            config_level[lvl_now+1].set_slater(a_ij,slater[lvl_now+1]);
+                            
+                            counttotal+=1;
+                            number= tonumber(config_level[lvl_now+1]);
+                            unordered_map<long long,double>::const_iterator got = dMapPtr->find (number);
+                            if ( got == dMapPtr->end() ){
                                 config_level[lvl_now+1].set_slater(a_ij,slater[lvl_now+1]);
-
+                                deter[lvl_now+1] = determinant(slater[lvl_now+1]);
                                 
-                                Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power);
-                                
-                                if (lvl_now==0) {
-                                    
-                                    (*ptr_tot_E)       +=  Energy_level[0];
-                                    (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
-                                    (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
-                                    //tot_O_gtimesE += E*deriv_g;
-                                    (*ptr_temp_EperSample)       +=  Energy_level[0];
-                                }
-                                
-                                else{
-                                    double temp=1.0;
-                                    for (int i=0; i<=lvl_now; i++) {
-                                        temp*=Energy_level[i];
-                                    }
-                                    temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
-                                    
-                                    tot_E_power[lvl_now] += temp;
-                                }
-                                
-                                
-                                
-                                
+                                pair<long long,double> tmp (number,deter[lvl_now+1]);
+                                dMapPtr->insert( tmp);
+                                //dMapPtr->insert ( {tonumber(config_level[0]), deter_0} );
                             }
+                            else{
+                                countaccept+=1;
+                                deter[lvl_now+1] = got->second;
+                            }
+                            
+                            
+
+                            
+                            
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
+                            
+                            if (lvl_now==0) {
+                                
+                                (*ptr_tot_E)       +=  Energy_level[0];
+                                (*ptr_tot_O_DtimesE) += Energy_level[0]*deriv_D;
+                                (*ptr_tot_O_MutimesE) += Energy_level[0]*deriv_Mu;
+                                //tot_O_gtimesE += E*deriv_g;
+                                (*ptr_temp_EperSample)       +=  Energy_level[0];
+                            }
+                            
+                            else{
+                                double temp=1.0;
+                                for (int i=0; i<=lvl_now; i++) {
+                                    temp*=Energy_level[i];
+                                }
+                                temp*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
+                                //temp*=(determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign);
+                                
+                                tot_E_power[lvl_now] += temp;
+                            }
+                            
+                            
+                            
+                            
+                        }
                     }
                     
                     else cout<<"GG\n";
