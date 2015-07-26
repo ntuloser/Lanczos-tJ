@@ -7,7 +7,7 @@
 //#include <omp.h>
 #include <mpi.h>
 #include <functional>
-#include <unordered_map>
+//#include <unordered_map>
 #include "khash.h"
 KHASH_MAP_INIT_INT64(kMap, double)
 //sturct kh_kMap_t
@@ -182,7 +182,7 @@ double determinant(double** a)
     return det*pow(-1.0,n);
 }
 
-void Traversal(int level, int bound, config* config_level, double ** a_ij, double *** slater,const double& deter_origin,const double& deriv_D, const double& deriv_Mu, double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample,double *Energy_level, double * tot_E_power,  unordered_map<long long,double>* dMapPtr);
+void Traversal(int level, int bound, config* config_level, double ** a_ij, double *** slater,const double& deter_origin,const double& deriv_D, const double& deriv_Mu, double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample,double *Energy_level, double * tot_E_power,  kh_kMap_t* khashMap);
 
 
 long long tonumber(const config& alpha){
@@ -256,7 +256,11 @@ int main(int argc, char** argv){
         //printf("%f, %f\n",kk[idx][0],kk[idx][1]);
     }
     
-    unordered_map<long long,double,hash<long long> > dMap;
+    
+    int ret;
+    khiter_t k;
+    khash_t(kMap) *khashMap = kh_init(kMap);
+    //unordered_map<long long,double,hash<long long> > dMap;
     
     /////////////////////////////
     ////Variational Procedure////
@@ -387,7 +391,6 @@ int main(int argc, char** argv){
             
             
             if (flipped==1) {
-                //cout<<"prob:"<<pow(determinant(slater[1],num_e/2)/determinant(slater[0],num_e/2),2)<<"\n";
                 int num_d_a = config_level[0].num_doublon();
                 int num_d_b = config_level[1].num_doublon();
                 
@@ -395,32 +398,30 @@ int main(int argc, char** argv){
                 
                 double deter_0;
                 long long number=tonumber(config_level[0]);
-                unordered_map<long long,double>::const_iterator got0 = dMap.find (number);
-                if ( got0 == dMap.end() ){
+                k = kh_get(kMap, khashMap, number);
+                if ( k == kh_end(khashMap) ){
                     config_level[0].set_slater(a_ij,slater[0]);
                     deter_0 = determinant(slater[0]);
-                    pair<long long,double> tmp (number,deter_0);
-                    dMap.insert( tmp);
-                    //dMap.insert ( {tonumber(config_level[0]), deter_0} );
+                    k = kh_put(kMap, khashMap, number, &ret);
+                    kh_value(khashMap, k) = deter_0;
                 }
                 else{
                     countaccept+=1;
-                    deter_0 = got0->second;
+                    deter_0 = kh_value(khashMap, k);
                 }
                 
                 double deter_1;
                 number =tonumber(config_level[1]);
-                unordered_map<long long,double>::const_iterator got1 = dMap.find (number);
-                if ( got1 == dMap.end() ){
+                k = kh_get(kMap, khashMap, number);
+                if ( k == kh_end(khashMap) ){
                     config_level[1].set_slater(a_ij,slater[1]);
                     deter_1 = determinant(slater[1]);
-                    pair<long long,double> tmp (number,deter_1);
-                    dMap.insert( tmp);
-                    //dMap.emplace (tonumber(config_level[1]), deter_1);
+                    k = kh_put(kMap, khashMap, number, &ret);
+                    kh_value(khashMap, k) = deter_1;
                 }
                 else{
                     countaccept+=1;
-                    deter_1 = got1->second;
+                    deter_1 = kh_value(khashMap, k);
                 }
                 
                 if (p<pow(deter_1/deter_0,2) *pow(g,2*(num_d_b-num_d_a))|| abs(deter_0)<0.00001){
@@ -489,7 +490,7 @@ int main(int argc, char** argv){
                     Energy_level[i]=0;
                 }
                 
-                Traversal(0,LEV, config_level, a_ij, slater, deter_origin, deriv_D, deriv_Mu, &tot_E, &tot_O_DtimesE, &tot_O_MutimesE, &temp_EperSample,Energy_level,tot_E_power, &dMap);
+                Traversal(0,LEV, config_level, a_ij, slater, deter_origin, deriv_D, deriv_Mu, &tot_E, &tot_O_DtimesE, &tot_O_MutimesE, &temp_EperSample,Energy_level,tot_E_power, khashMap);
                 //get the value of tot_E, tot_O_DtimesE, tot_O_MutimesE, temp_EperSample, Energy_level, tot_E_power
                 
                 tot_E_sqr += pow(temp_EperSample,2);
@@ -665,10 +666,12 @@ int main(int argc, char** argv){
 
 
 
-void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, double *** slater, const double& deter_origin, const double& deriv_D, const double& deriv_Mu,double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample, double *Energy_level, double * tot_E_power, unordered_map<long long,double>* dMapPtr){
+void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, double *** slater, const double& deter_origin, const double& deriv_D, const double& deriv_Mu,double* ptr_tot_E, double* ptr_tot_O_DtimesE, double* ptr_tot_O_MutimesE, double* ptr_temp_EperSample, double *Energy_level, double * tot_E_power, kh_kMap_t* khashMap){
     
     
     double deter[ (bound+1) ];
+    khiter_t k;
+    int ret;
     
     
     if (lvl_now==bound) {
@@ -692,19 +695,19 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                     counttotal+=1;
                     
                     long long number =tonumber(config_level[lvl_now+1]);
-                    unordered_map<long long,double>::const_iterator got = dMapPtr->find (number);
-                    if ( got == dMapPtr->end() ){
+                    k = kh_get(kMap, khashMap, number);
+                    if ( k == kh_end(khashMap) ){
                         config_level[lvl_now+1].set_slater(a_ij,slater[lvl_now+1]);
                         deter[lvl_now+1] = determinant(slater[lvl_now+1]);
-                        
-                        pair<long long,double> tmp (number,deter[lvl_now+1]);
-                        dMapPtr->insert( tmp);
-                        //dMapPtr->insert ( {tonumber(config_level[0]), deter_0} );
+                        k = kh_put(kMap, khashMap, number, &ret);
+                        kh_value(khashMap, k) = deter[lvl_now+1];
                     }
                     else{
                         countaccept+=1;
-                        deter[lvl_now+1] = got->second;
+                        deter[lvl_now+1] = kh_value(khashMap, k);
                     }
+                    
+
                     
                     
                     //for (int i=0; i<num_e/2; i++) {
@@ -720,7 +723,7 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                             Energy_level[lvl_now]  =  -t;
                             
                             
-                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, khashMap);
                             
                             if (lvl_now==0) {
 
@@ -749,7 +752,7 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                             Energy_level[lvl_now]  =  t;
                             
                             
-                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, khashMap);
                             
                             if (lvl_now==0) {
                                 Energy_level[lvl_now]*=(deter[lvl_now+1]/deter_origin*config_level[lvl_now+1].Sign);
@@ -785,7 +788,7 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                             //Energy_level[lvl_now]  = +J/2*determinant(slater[lvl_now+1])/deter_origin*config_level[lvl_now+1].Sign;
                             Energy_level[lvl_now]  = +J/2;
                             
-                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, khashMap);
                             
                             
                             if (lvl_now==0) {
@@ -821,25 +824,25 @@ void Traversal(int lvl_now, int bound, config* config_level, double ** a_ij, dou
                             
                             counttotal+=1;
                             number= tonumber(config_level[lvl_now+1]);
-                            unordered_map<long long,double>::const_iterator got = dMapPtr->find (number);
-                            if ( got == dMapPtr->end() ){
+                            k = kh_get(kMap, khashMap, number);
+                            if ( k == kh_end(khashMap) ){
                                 config_level[lvl_now+1].set_slater(a_ij,slater[lvl_now+1]);
                                 deter[lvl_now+1] = determinant(slater[lvl_now+1]);
-                                
-                                pair<long long,double> tmp (number,deter[lvl_now+1]);
-                                dMapPtr->insert( tmp);
-                                //dMapPtr->insert ( {tonumber(config_level[0]), deter_0} );
+                                k = kh_put(kMap, khashMap, number, &ret);
+                                kh_value(khashMap, k) = deter[lvl_now+1];
                             }
                             else{
                                 countaccept+=1;
-                                deter[lvl_now+1] = got->second;
+                                deter[lvl_now+1] = kh_value(khashMap, k);
                             }
                             
                             
 
                             
+
                             
-                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, dMapPtr);
+                            
+                            Traversal(lvl_now+1,bound, config_level, a_ij, slater, deter_origin, deriv_D,deriv_Mu, ptr_tot_E, ptr_tot_O_DtimesE, ptr_tot_O_MutimesE, ptr_temp_EperSample,Energy_level,tot_E_power, khashMap);
                             
                             if (lvl_now==0) {
                                 

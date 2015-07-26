@@ -20,6 +20,9 @@ public:
     int Dope;
     int num_ele;
     
+    //vector< vector< site > > squarelattice_not_ptr;
+    //vector< vector< site > >* squarelattice;
+
     site*** squarelattice;
     int ** electronsup;
     int ** electronsdown;
@@ -140,10 +143,13 @@ public:
 			int y_ran=r/Size;
 			int filled=0;
 			for (int i=0; i<count; i++) {
+
 				if (electronsup[i][0]==x_ran && electronsup[i][1]==y_ran) {
 					filled=1;
 				}
+                
 			}
+
 			if (filled==0) {
 				electronsup[count][0]=x_ran;
 				electronsup[count][1]=y_ran;
@@ -151,6 +157,7 @@ public:
 			}
             
 		}
+
 		count = 0;
 		while (count < num_ele/2 ) // Filling the down spin part, total s*s/2-delta/2 electrons.
 		{
@@ -184,6 +191,7 @@ public:
 		//////////////////////////////////////////
         
 		// Filling in the occupied, empty->0, up->1, down->2, updown->3
+
 		for (int i=0; i<Size; i++) {
 			for (int j=0; j<Size; j++) {
 				squarelattice[i][j]->state=0;
@@ -191,6 +199,7 @@ public:
 				squarelattice[i][j]->idx_down=-1;
 			}
 		}
+
         
 		for (int i=0;i<num_ele/2;i++){
             
@@ -492,7 +501,17 @@ public:
         //beta_ptr->num_ele = this->num_ele;
         
         
+        
         beta_ptr->Sign = this->Sign;
+        site* b_site=beta_ptr->squarelattice[0][0];
+        site* this_site=this->squarelattice[0][0];
+        memcpy ( b_site, this_site, Size*Size*sizeof(site) );
+        memcpy ( &(beta_ptr->electronsup[0][0]), &(this->electronsup[0][0]), num_ele*sizeof(int) );
+        memcpy ( &(beta_ptr->electronsdown[0][0]), &(this->electronsdown[0][0]), num_ele*sizeof(int) );
+        
+
+
+        /*
         for (int i=0; i<Size; i++) {
             for (int j=0; j<Size; j++) {
                 
@@ -503,11 +522,6 @@ public:
                 b_site->idx_up = this_site->idx_up;
                 b_site->idx_down = this_site->idx_down;
                 
-                /*
-                beta_ptr->squarelattice[i][j]->state = (this->squarelattice[i][j]->state);
-                beta_ptr->squarelattice[i][j]->idx_up = (this->squarelattice[i][j]->idx_up);
-                beta_ptr->squarelattice[i][j]->idx_down = (this->squarelattice[i][j]->idx_down);
-                */
             }
         }
         for (int i=0; i<num_ele/2; i++) {
@@ -515,7 +529,8 @@ public:
                 beta_ptr->electronsup[i][j] = this->electronsup[i][j];
                 beta_ptr->electronsdown[i][j] = this->electronsdown[i][j];
             }
-        }
+        }*/
+        
     }
     
     
@@ -525,7 +540,7 @@ public:
         //a_ij  :  [(2*Size-1)][(2*Size-1)]
         for (int i=0;i<num_ele/2;i++){
 			for (int j=0;j<num_ele/2;j++){
-				// The ith electronup, and the jth electrondown.
+				// The ith electronsup, and the jth electronsdown.
 				// Call the matrix a_ij by displacement vector
 				// between two electron.
 				//
@@ -558,6 +573,41 @@ config::config(int s, int d ){
     num_ele=s*s-d;
     
     
+
+    /*
+    int i;
+    site ** siteptrptr;
+    squarelattice= (site ***)malloc(Size *sizeof(site **));
+    siteptrptr = (site  **)malloc(Size*Size*sizeof(site *));
+    for (i=0; i<Size ; i++, siteptrptr+=Size )
+        squarelattice[i]=siteptrptr;
+    */
+    
+    
+    int i, j;
+    site ** siteptrptr;
+    site *  siteptr;
+    squarelattice = ( site *** )malloc(Size*sizeof(site**)+Size*Size*sizeof(site*)+Size*Size*sizeof(site) );
+    for (i=0, siteptrptr=(site **)(squarelattice+Size), siteptr=(site *)(siteptrptr+Size*Size); i<Size; i++, siteptrptr += Size, siteptr+= Size ) {
+        squarelattice[i]=siteptrptr;
+        for (j=0 ; j<Size; j++) {
+            squarelattice[i][j]=(site*)(siteptr+j);
+        }
+        
+    }
+
+    int *intptr;
+    electronsup = (int**) malloc(num_ele/2 * sizeof(int*)+ num_ele*sizeof(int) );
+    for(i=0, intptr=(int*)(electronsup+num_ele/2); i<num_ele/2; i++, intptr+= 2){
+        electronsup[i]=intptr;
+    }
+    electronsdown = (int**) malloc(num_ele/2 * sizeof(int*)+ num_ele*sizeof(int) );
+    for(i=0, intptr=(int*)(electronsdown+num_ele/2); i<num_ele/2; i++, intptr+= 2){
+        electronsdown[i]=intptr;
+    }
+
+    
+    /*
     squarelattice = new site**[Size];
     for (int i=0; i<Size; i++) {
         squarelattice[i]= new site*[Size];
@@ -573,7 +623,8 @@ config::config(int s, int d ){
     electronsdown = new int*[num_ele/2];
     for (int i=0; i<num_ele/2; i++) {
         electronsdown[i] = new int[2];
-    }
+    }*/
+    
 }
 
 
@@ -621,6 +672,13 @@ config::config(const config& a){
 
 //destructor
 config::~config(){
+    
+    free(squarelattice);
+    free(electronsup);
+    free(electronsdown);
+
+    
+    /*
     for (int i=0; i<Size; i++) {
         for (int j=0; j<Size; j++) {
             delete squarelattice[i][j];
@@ -637,7 +695,7 @@ config::~config(){
     for (int i=0; i<num_ele/2; i++) {
         delete [] electronsdown[i];
     }
-    delete [] electronsdown;
+    delete [] electronsdown;*/
     
 }
 
