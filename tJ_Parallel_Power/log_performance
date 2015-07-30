@@ -1,0 +1,69 @@
+test performance with running 100,0000 times
+duration_rand_init_no_d : 1.82132
+duration_set_slater : 0.274184
+duration_determinant : 0.32324
+duration_swap : 0.115654
+duration_copy : 0.049375
+duration_tonumber : 0.057838
+
+dur_find : 0.135314
+dur_mapFindInsert : 1.10981
+hash_map_efficiency:
+total = 1000000  accept = 325021ratio0.325021
+
+
+test performance with running 100,0000 times
+duration_rand_init_no_d : 1.51807
+duration_set_slater : 0.267351
+duration_determinant : 0.154403
+duration_swap : 0.108617
+duration_copy : 0.01993
+duration_tonumber : 0.355925
+
+dur_find : 0.086751
+dur_mapFindInsert : 0.872699
+hash_map_efficiency:
+total = 1000000  accept = 325323ratio0.325323
+
+test performance with running 100,0000 times
+duration_rand_init_no_d : 1.59763
+duration_set_slater : 0.489308
+duration_determinant : 0.062959
+duration_swap : 0.179565
+duration_copy : 0.103283
+duration_tonumber : 0.328712
+
+dur_find : 0.136976
+dur_mapFindInsert : 1.1418
+hash_map_efficiency:
+total = 1000000  accept = 325847ratio0.325847
+
+
+test performance with running 100,0000 times
+duration_rand_init_no_d : 1.49589
+duration_set_slater : 0.277318
+duration_determinant : 0.095064
+duration_swap : 0.293839
+duration_copy : 0.222496
+duration_tonumber : 0.352082
+
+dur_find : 0.098138
+dur_mapFindInsert : 0.989885
+hash_map_efficiency:
+
+
+total = 1000000  accept = 324465ratio0.324465
+Shengs-MacBook-Air:parallel shlin$ g++ performance_cpr.cpp 
+Shengs-MacBook-Air:parallel shlin$ ./a.out 
+test performance with running 100,0000 times
+duration_rand_init_no_d : 1.48923
+duration_set_slater : 0.249153
+duration_determinant : 0.11485
+duration_swap : 0.321944
+duration_copy : 0.271695
+duration_tonumber : 0.330789
+
+dur_find : 0.121196
+dur_mapFindInsert : 1.20911
+hash_map_efficiency:
+total = 1000000  accept = 325876ratio0.325876
