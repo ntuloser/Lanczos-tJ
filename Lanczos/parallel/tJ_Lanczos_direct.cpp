@@ -10,7 +10,7 @@
 
 #define SIZE 4
 #define DELTA 6//6
-#define LEV 2// calculation given to H^lev
+#define LEV 1// calculation given to H^lev
 
 #include"config.h"
 
@@ -26,14 +26,14 @@ const double t=1.;
 const double J=2.;//0.33;
 const int num_e=SIZE*SIZE-DELTA;
 
-const int Variational_steps=1;
+const int Variational_steps=10;
 const double del_t = 0.015;//0.03
 const double differStep=0.008; //little larger then the variation of energy per site.
 
 
 ////Variational parameter////
-double D=  0.862516;//0.880081;        // the first  parameter
-double Mu= -1.29518;//-1.2273;     // the second parameter
+double D=  0.3;//0.862516;        // the first  parameter
+double Mu= 0.3;//-1.29518;     // the second parameter
 double g=1;             // the third  parameter
 /////////////////////////////
 std::vector<double> Energy_log;
